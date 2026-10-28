@@ -68,7 +68,7 @@ static const float KD[3] = {0.0f, 18.0f, 18.0f};
 // attitude set-points go to level and throttle ramps down by 1 us every
 // FAILSAFE_RAMP_DIV loops (10 -> 25 us/s), then the motors are disarmed.
 // Simulation (simulation/quad_sim.py): from 30 m, 250 us/s hits the ground at
-// ~20 m/s, 25 us/s at a few m/s. Without an altimeter this is open loop; add a
+// ~20 m/s, 25 us/s at ~11 m/s. Without an altimeter this is open loop; add a
 // barometer (BMP280) for a real controlled descent.
 // ---------------------------------------------------------------------------
 #define FAILSAFE_TIMEOUT_MS 250
