@@ -1,0 +1,43 @@
+{
+  "hover": {
+    "f_N": 2.943,
+    "w_rad_s": 588.4176188028763,
+    "u_us": 1588.4176188028764
+  },
+  "roll_step": {
+    "target_deg": 6.133333333333334,
+    "steady_deg": 7.107625364734581,
+    "rise_s": 0.8560000000000001,
+    "overshoot_pct": 0.5378288140032452,
+    "settle_5pct_s": 1.564
+  },
+  "disturbance": {
+    "peak_deg": 1.9118011290476344,
+    "recover_1deg_s": 0.14000000000000012
+  },
+  "failsafe": {
+    "fast_impact_mps": 19.84377418743695,
+    "fast_time_s": 3.476,
+    "slow_impact_mps": 11.44813692485481,
+    "slow_time_s": 6.896,
+    "baro_impact_mps": 1.2341342463439569,
+    "baro_time_s": 30.424
+  },
+  "complementary": {
+    "rms_fused_deg": 0.5566420132157701,
+    "rms_acc_deg": 2.0,
+    "gyro_drift_60s_deg": 3.0263744308013116
+  },
+  "bode": {
+    "K_deg_s2_per_us": 31.71661958627566,
+    "dtau_du_Nm_per_us": 0.0063659335529048676,
+    "crossover_hz": 7.3896085206427635,
+    "phase_margin_deg": 52.17661625424108,
+    "gain_margin_db": 10.597029642147948,
+    "phase_crossover_hz": 18.717217254952722
+  },
+  "pitch_sign_bug": {
+    "corrected_final_deg": 0.6978702374657353,
+    "legacy_time_to_70deg_s": 0.6440000000000001
+  }
+}

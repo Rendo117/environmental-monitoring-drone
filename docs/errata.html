@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Errata: corrections to the 2022 thesis — Environmental Monitoring Drone</title>
+<meta name="description" content="Corrections to the 2022 thesis: firmware, Raspberry Pi script, Java application, hardware and text.">
+<meta name="author" content="Cristian-Mihail Chirea">
+<link rel="canonical" href="https://rendo117.github.io/environmental-monitoring-drone/errata.html">
+<meta property="og:title" content="Errata: corrections to the 2022 thesis — Environmental Monitoring Drone">
+<meta property="og:description" content="Corrections to the 2022 thesis: firmware, Raspberry Pi script, Java application, hardware and text.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://rendo117.github.io/environmental-monitoring-drone/assets/img/drone-photo.jpg">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar"><div class="bar-inner">
+<a class="home" href="./">Environmental Monitoring Drone</a>
+<nav aria-label="Sections">
+<a href="./">Overview</a>
+<a href="math.html">Mathematics</a>
+<a href="hardware.html">Hardware</a>
+<a href="software.html">Software</a>
+<a href="simulation.html">Simulation</a>
+<a href="errata.html" aria-current="page">Errata</a>
+<a class="gh" href="https://github.com/Rendo117/environmental-monitoring-drone">GitHub</a>
+</nav>
+</div></header>
+<main id="main">
+<div class="prose"><h1>Errata: corrections to the 2022 thesis</h1>
+<p>This is a review of <em>"Dronă de colectare a datelor despre mediul înconjurător în situații de urgență"</em>
+(C. M. Chirea, University of Craiova, July 2022). Page numbers are the printed page numbers.
+Severity: <span class="sev sev-h">● high</span> affects safety/function · <span class="sev sev-m">● medium</span> technically wrong · <span class="sev sev-l">● low</span> wording/typo.</p>
+<h2>A. Firmware (Annex A, "Codul C de control a dronei")</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Sev.</th>
+<th>Original</th>
+<th>Problem</th>
+<th>Fix in this repository</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A1</td>
+<td><span class="sev sev-h">● high</span></td>
+<td><code>gyro_angle[Y] += -gyro_raw[Y]/…</code> and <code>angular_motions[PITCH] = … + gyro_raw[Y]</code></td>
+<td>The pitch angle and the pitch rate have opposite signs, so the self-levelling loop has a pole at <img class="eq" src="assets/eq/681498bc1262.svg" alt="s=+5" style="width:3.200em;height:0.848em;vertical-align:-0.143em"> s⁻¹. The aircraft flips on pitch in under a second (see simulation).</td>
+<td>One sign per axis (<code>GYRO_*_SIGN</code>, <code>ACC_*_SIGN</code>). Rate = d(angle)/dt by construction.</td>
+</tr>
+<tr>
+<td>A2</td>
+<td><span class="sev sev-h">● high</span></td>
+<td><code>isRULARE()</code> defined but never called</td>
+<td>No arming logic. The ESCs get ≥ 1100 µs (props spinning) as soon as the loop starts.</td>
+<td><code>updateStatus()</code> runs every loop. Motors stay at 1000 µs unless STARTED.</td>
+</tr>
+<tr>
+<td>A3</td>
+<td><span class="sev sev-h">● high</span></td>
+<td>—</td>
+<td>No reaction to losing the link. The last pulse widths stay valid forever.</td>
+<td>250 ms pulse timeout → level attitude, throttle ramp-down, disarm. The RPi also has a 1 s command watchdog.</td>
+</tr>
+<tr>
+<td>A4</td>
+<td><span class="sev sev-h">● high</span></td>
+<td><code>ISR(PCINT0_vect)</code> defined <strong>twice</strong> (receiver and Geiger)</td>
+<td>Does not compile when <code>GEYGER_SENSOR_PRESENT</code> = 1.</td>
+<td>One ISR handles PB0–PB4. Falling-edge counting for the Geiger tube on PCINT4 (<code>PCMSK0</code> bit 4 is now enabled).</td>
+</tr>
+<tr>
+<td>A5</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td><code>TCNT1 = 31250</code> with prescaler 256, overflow interrupt</td>
+<td>The period is (65 536 − 31 250)·16 µs = <strong>0.549 s</strong>, not 1 s.</td>
+<td>Timer1 in CTC mode, <code>OCR1A = 62499</code> → exactly 1.000 Hz.</td>
+</tr>
+<tr>
+<td>A6</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td><code>Serial.Write(...)</code> inside the timer ISR</td>
+<td>Capital <code>W</code> does not compile. Serial output from an ISR can also block.</td>
+<td>The ISR only stores counts in a 60-s ring buffer. Telemetry is sent from <code>loop()</code>.</td>
+</tr>
+<tr>
+<td>A7</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td><code>void citireSenzorGaz() { return analogRead(A3); }</code> and <code>#elif</code> without condition</td>
+<td>A <code>void</code> function returns a value, and <code>#elif</code> needs an expression. Neither compiles. The gas value was never used.</td>
+<td><code>readPayload()</code> stores <code>gas_adc</code>, which goes out in the telemetry frame.</td>
+</tr>
+<tr>
+<td>A8</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td><code>interruptPinTemp</code>, <code>interruptPinSlanost</code>, <code>timer1_counter</code>, <code>ticks</code></td>
+<td>Undeclared identifiers (copied from another project).</td>
+<td>Removed or declared.</td>
+</tr>
+<tr>
+<td>A9</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td><code>Serial.write(int(miscari_unghiulare[YAW]))</code> every loop</td>
+<td>Sends one raw binary byte at 250 Hz, which corrupts any serial protocol and wastes loop time.</td>
+<td>Removed. A structured <code>$T,…*CS</code> frame is sent at 10 Hz.</td>
+</tr>
+<tr>
+<td>A10</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td><code>acc_total_vector</code> is <code>long</code>; <code>if (abs(acc_raw[X]) &lt; acc_total_vector) acc_angle[X] = asin(acc_raw[Y]/…)</code></td>
+<td>Integer truncation can make the ratio &gt; 1, which gives NaN. The guard checks the wrong axis.</td>
+<td><code>float</code> norm and <code>constrain(ratio, -1, 1)</code> on the same axis.</td>
+</tr>
+<tr>
+<td>A11</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td><code>delay(0.1)</code></td>
+<td><code>delay()</code> takes integer ms, so this is <code>delay(0)</code>.</td>
+<td>Removed.</td>
+</tr>
+<tr>
+<td>A12</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>Yaw "centred" test <code>== 1500</code></td>
+<td>A measured pulse is almost never exactly 1500 µs, so arming could hang in STARTING.</td>
+<td>Tolerance ±50 µs.</td>
+</tr>
+<tr>
+<td>A13</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>Mixer outputs computed in <code>unsigned long</code></td>
+<td>A negative intermediate value wraps to ~4·10⁹ before clamping.</td>
+<td>Computed in <code>float</code>, then clamped to 1100–2000 µs.</td>
+</tr>
+<tr>
+<td>A14</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>Volatile pulse widths read directly in <code>loop()</code></td>
+<td>16/32-bit reads are not atomic on AVR, so a value can be torn by the ISR.</td>
+<td>Copied with interrupts disabled.</td>
+</tr>
+<tr>
+<td>A15</td>
+<td><span class="sev sev-l">● low</span></td>
+<td>Comment <code>ACCEL_CONFIG 0x10 // ±500°/s</code></td>
+<td>0x10 means <strong>±8 g</strong> (4096 LSB/g).</td>
+<td>Comment corrected.</td>
+</tr>
+<tr>
+<td>A16</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>Initial angle = one accelerometer sample</td>
+<td>Vibration noise becomes a permanent tilt offset. On a multirotor the accelerometer cannot correct it later.</td>
+<td>Initialised from the mean of the 2000 calibration samples.</td>
+</tr>
+<tr>
+<td>A17</td>
+<td><span class="sev sev-l">● low</span></td>
+<td><code>compensateBatteryDrop()</code> never called</td>
+<td>Dead code.</td>
+<td>Called when STARTED and a battery is detected.</td>
+</tr>
+<tr>
+<td>A18</td>
+<td><span class="sev sev-l">● low</span></td>
+<td>Mixed Romanian/English identifiers, <code>GEYGER</code></td>
+<td>Readability.</td>
+<td>English identifiers, <code>GEIGER</code>.</td>
+</tr>
+</tbody>
+</table></div>
+<h2>B. Raspberry Pi script (§4.3)</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Sev.</th>
+<th>Problem</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>B1</td>
+<td><span class="sev sev-h">● high</span></td>
+<td><strong>Channel order mismatch.</strong> Java writes <code>pitch|roll|yaw|throttle</code>, but the Pi parses <code>num[0]=yaw, num[1]=roll, num[2]=pitch</code>. Pitch commands move yaw and the reverse.</td>
+<td>Named JSON fields <code>{roll, pitch, yaw, throttle}</code>.</td>
+</tr>
+<tr>
+<td>B2</td>
+<td><span class="sev sev-h">● high</span></td>
+<td>No authentication. The database URL in the thesis is world-writable, so anyone could send flight commands.</td>
+<td>Firebase Auth (e-mail/password) plus security rules (<code>firebase/database.rules.json</code>).</td>
+</tr>
+<tr>
+<td>B3</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td><code>RPi.GPIO</code> software PWM has tens of µs of jitter, about 3–5 % of stick travel.</td>
+<td><code>pigpio</code> DMA-timed servo pulses (&lt; 5 µs jitter).</td>
+</tr>
+<tr>
+<td>B4</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td><code>GPIO.setmode(GPIO.BOARD)</code> with pins 12/13/18/19. These are <strong>physical</strong> pins (BCM 18/27/24/10). Only BCM18 supports hardware PWM.</td>
+<td>Documented. BCM numbers in <code>config.ini</code>.</td>
+</tr>
+<tr>
+<td>B5</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>The str(dict) parser reads digits between <code>:</code> and <code>,</code>, which breaks with nested keys, negative numbers and Firebase push IDs.</td>
+<td>JSON.</td>
+</tr>
+<tr>
+<td>B6</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>Throttle printed as <code>num[3]/10</code> but sent as <code>num[3]</code>.</td>
+<td>Removed.</td>
+</tr>
+<tr>
+<td>B7</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>No telemetry upload, although the thesis says measurements are sent to the database.</td>
+<td><code>telemetry/latest</code> + 1 Hz <code>history</code>.</td>
+</tr>
+</tbody>
+</table></div>
+<h2>C. Java application (§4.2)</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Sev.</th>
+<th>Problem</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C1</td>
+<td><span class="sev sev-h">● high</span></td>
+<td>Credentials hard-coded (<code>user</code> / <code>drone</code>), compared in plain text in the client. This gives no security.</td>
+<td>Real authentication through Firebase Auth. Nothing is stored in the code.</td>
+</tr>
+<tr>
+<td>C2</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>Every key press writes <code>log.txt</code>, starts a <code>.bat</code>, and that starts a new Python interpreter. Latency is 0.3–1 s per command and no ordering is guaranteed.</td>
+<td>Direct HTTPS <code>PUT</code> from Java (<code>java.net.http</code>).</td>
+</tr>
+<tr>
+<td>C3</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>Absolute Windows paths (<code>D:\projects\…</code>) in three different forms (<code>\src…</code>, <code>src…</code>, <code>D:\…</code>).</td>
+<td>No file system use.</td>
+</tr>
+<tr>
+<td>C4</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>Spinner default 0 for roll/pitch/yaw is 1000 µs, which is a <strong>full left/down stick</strong>. Arming sends extreme commands.</td>
+<td>Default 50 (1500 µs centre).</td>
+</tr>
+<tr>
+<td>C5</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>Keyboard works only when the radio button has focus. <code>VK_DOWN</code> and the others lack the <code>connectionRequired</code> check.</td>
+<td>Window-wide key bindings with one check.</td>
+</tr>
+<tr>
+<td>C6</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>Gas/radiation fields in the GUI are never filled.</td>
+<td>Telemetry tab with values, uncertainty, plots and CSV export.</td>
+</tr>
+<tr>
+<td>C7</td>
+<td><span class="sev sev-l">● low</span></td>
+<td>The 9-fold copy-paste of the same send block (~400 lines).</td>
+<td>One <code>sendCommand()</code>.</td>
+</tr>
+</tbody>
+</table></div>
+<h2>D. Hardware</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Sev.</th>
+<th>Item</th>
+<th>Correction</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D1</td>
+<td><span class="sev sev-h">● high</span></td>
+<td>Arduino TX (5 V) → Raspberry Pi RX</td>
+<td>Pi GPIOs are <strong>3.3 V only</strong>. Use a 1 k/2 k divider (added).</td>
+</tr>
+<tr>
+<td>D2</td>
+<td><span class="sev sev-h">● high</span></td>
+<td>RPi 4 powered from the ESC BEC (Fritzing Fig. 1)</td>
+<td>Linear ESC BECs deliver about 1–2 A. A Pi 4 needs a 5 V / 3 A supply, otherwise it browns out and reboots in flight. Use a dedicated UBEC.</td>
+</tr>
+<tr>
+<td>D3</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>Geiger schematic (Fig. 8): D1, D2 labelled <strong>2N2222</strong></td>
+<td>2N2222 is a transistor. Use fast HV diodes such as UF4007.</td>
+</tr>
+<tr>
+<td>D4</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>Geiger output taken from the base of Q2</td>
+<td>The base swing is only ~0.6 V. Take the output from the <strong>collector</strong> (active-LOW with R10 pull-up).</td>
+</tr>
+<tr>
+<td>D5</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>"4.7m" resistors</td>
+<td>In SPICE notation "m" means milli. The anode resistor is 4.7 <strong>MΩ</strong>.</td>
+</tr>
+<tr>
+<td>D6</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>Q1 IRF220 driven from a 5 V 555</td>
+<td><img class="eq" src="assets/eq/3fd38d58662b.svg" alt="V_{GS(th)}" style="width:3.301em;height:1.159em;vertical-align:-0.416em"> is up to 4 V, so the device is not fully enhanced. Use a logic-level MOSFET (IRLZ44N), a 100 Ω gate resistor and a 10 k pull-down.</td>
+</tr>
+<tr>
+<td>D7</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>Tattu 2305 <strong>2450 KV</strong> motors listed, but the photo shows an F450-class frame with ~10″ props</td>
+<td>2450 KV motors are for 5″ props. On 10″ props they would draw far more than the 30 A ESC rating. For F450 use 920–1000 KV (2212) with 10×4.5″ props. Check which motors were actually fitted.</td>
+</tr>
+<tr>
+<td>D8</td>
+<td><span class="sev sev-l">● low</span></td>
+<td>R7 650 Ω</td>
+<td>Not an E12 value. Use 680 Ω.</td>
+</tr>
+</tbody>
+</table></div>
+<h2>E. Text</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Page</th>
+<th>Sev.</th>
+<th>Original</th>
+<th>Correction</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>x (contents), 18</td>
+<td><span class="sev sev-l">● low</span></td>
+<td>"Modelul matematic a dornei", "Structura donei"</td>
+<td>"al dronei", "dronei"</td>
+</tr>
+<tr>
+<td>3</td>
+<td><span class="sev sev-l">● low</span></td>
+<td>"Raspberry Pi 4 Model B este cel mai nou model"</td>
+<td>True in 2022. Raspberry Pi 5 was released in October 2023.</td>
+</tr>
+<tr>
+<td>4</td>
+<td><span class="sev sev-l">● low</span></td>
+<td>BCM2835 / ARM1176 paragraph</td>
+<td>Describes the <strong>first-generation</strong> Pi, not the Pi 4 used. Can be removed.</td>
+</tr>
+<tr>
+<td>5</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>"Viteza de 20 MIPS"</td>
+<td>20 MIPS at 20 MHz. The Uno runs at <strong>16 MHz</strong> (16 MIPS).</td>
+</tr>
+<tr>
+<td>6</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>"Plăcuța se poate alimenta la tensiuni între 1.8 V și 5.5 V"</td>
+<td>That is the <strong>ATmega328P chip</strong> range. The Uno <strong>board</strong> takes 7–12 V on Vin/jack or 5 V on USB.</td>
+</tr>
+<tr>
+<td>6–7</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>"MPU6050 – Accelerometru"</td>
+<td>It is a 6-axis <strong>IMU</strong> (3-axis gyroscope + 3-axis accelerometer).</td>
+</tr>
+<tr>
+<td>7</td>
+<td><span class="sev sev-l">● low</span></td>
+<td>VCC "3.3 V"</td>
+<td>The GY-521 module has an on-board regulator and accepts 3.3–5 V.</td>
+</tr>
+<tr>
+<td>10</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>"Un BEC liniar folosește practic un rezistor"</td>
+<td>A linear BEC uses a <strong>linear regulator</strong> (pass transistor). The excess power <img class="eq" src="assets/eq/972aadeae827.svg" alt="(V_{in}-5)\,I" style="width:4.715em;height:1.120em;vertical-align:-0.310em"> is dissipated as heat.</td>
+</tr>
+<tr>
+<td>11</td>
+<td><span class="sev sev-l">● low</span></td>
+<td>"cele mai bune și mai puternice motoare … făcute vreodată"</td>
+<td>Marketing text from the vendor. Replace with specifications.</td>
+</tr>
+<tr>
+<td>12</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>"Când particulele ionizante străbat tubul, circuitul se închide"</td>
+<td>Ionising radiation ionises the fill gas, and the high field creates a <strong>Townsend avalanche</strong>. A short current pulse flows; the circuit does not "close".</td>
+</tr>
+<tr>
+<td>12</td>
+<td><span class="sev sev-l">● low</span></td>
+<td>"IRF220"</td>
+<td>See D6.</td>
+</tr>
+<tr>
+<td>13</td>
+<td><span class="sev sev-l">● low</span></td>
+<td>"Limbajul C este independent de platformă"</td>
+<td>The <em>source</em> is portable. Compiled binaries are not (the thesis says this later).</td>
+</tr>
+<tr>
+<td>15</td>
+<td><span class="sev sev-l">● low</span></td>
+<td>Java "error-freedom", "programs … not at risk of infection"</td>
+<td>Over-statements. Java is memory-safe, but not free of bugs or vulnerabilities.</td>
+</tr>
+<tr>
+<td>19</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>"putem controla doar unghiurile φ, θ și ψ"</td>
+<td>The inputs are the thrust <img class="eq" src="assets/eq/5422031a5235.svg" alt="T" style="width:0.843em;height:0.803em;vertical-align:-0.060em"> <strong>and</strong> the three torques (see math-model §4).</td>
+</tr>
+<tr>
+<td>20</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td><img class="eq" src="assets/eq/cc729196bb52.svg" alt="q = [-\xi;\ \eta]" style="width:5.063em;height:1.120em;vertical-align:-0.310em"></td>
+<td><img class="eq" src="assets/eq/157b88987109.svg" alt="q=[\xi;\ \eta]" style="width:4.285em;height:1.120em;vertical-align:-0.310em"></td>
+</tr>
+<tr>
+<td>21</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td><img class="eq" src="assets/eq/8e4143d907b4.svg" alt="\theta \neq (2k-1)\phi/2" style="width:7.098em;height:1.120em;vertical-align:-0.310em"></td>
+<td><img class="eq" src="assets/eq/18e240ae337d.svg" alt="\theta \neq (2k-1)\pi/2" style="width:7.109em;height:1.120em;vertical-align:-0.310em"></td>
+</tr>
+<tr>
+<td>22</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td><img class="eq" src="assets/eq/f38da6773c40.svg" alt="\tau_\psi = \sum\tau_{M_i}" style="width:5.283em;height:1.156em;vertical-align:-0.346em"></td>
+<td><img class="eq" src="assets/eq/08254894298b.svg" alt="\tau_\psi=\sum(-1)^{i+1}\tau_{M_i}" style="width:8.518em;height:1.232em;vertical-align:-0.346em"></td>
+</tr>
+<tr>
+<td>22</td>
+<td><span class="sev sev-l">● low</span></td>
+<td>"rotație", "înclinare", "rotire" used interchangeably</td>
+<td>roll = <em>ruliu</em>, pitch = <em>tangaj</em>, yaw = <em>girație</em> (standard Romanian aeronautical terms).</td>
+</tr>
+<tr>
+<td>26</td>
+<td><span class="sev sev-m">● medium</span></td>
+<td>"un timer pentru a detecta într-o secundă"</td>
+<td>See A5: the configured period was 0.549 s.</td>
+</tr>
+<tr>
+<td>44</td>
+<td><span class="sev sev-l">● low</span></td>
+<td>"factorii … se pot alege în mod experimental"</td>
+<td>Now supported by the stability analysis in math-model §7.3.</td>
+</tr>
+<tr>
+<td>47</td>
+<td><span class="sev sev-l">● low</span></td>
+<td>Reference [3] "2405KV"</td>
+<td>2450 KV</td>
+</tr>
+<tr>
+<td>—</td>
+<td><span class="sev sev-l">● low</span></td>
+<td>"esdte", "unchiulare", "sirecţii", "viarea", "peverticală", "ecceleraţiei", "senzotului", "prentru", "înntre", "v-oi", "Arrrow"</td>
+<td>este, unghiulare, direcţii, iar, pe verticală, acceleraţiei, senzorului, pentru, între, voi, Arrow</td>
+</tr>
+</tbody>
+</table></div></div>
+</main>
+<footer><div class="foot">
+<div>© 2022–2026 Cristian-Mihail Chirea. Code: MIT licence · Text and figures: CC BY 4.0.</div>
+<nav aria-label="Legal">
+<a href="legal.html">Legal notice</a>
+<a href="privacy.html">Privacy</a>
+<a href="terms.html">Terms of use</a>
+<a href="legal.html#licences">Licences</a>
+<button class="theme-toggle" type="button" id="theme">Toggle dark mode</button>
+</nav>
+</div></footer>
+<script>
+(function(){var b=document.getElementById('theme');if(!b)return;b.addEventListener('click',function(){
+var r=document.documentElement,cur=r.getAttribute('data-theme');
+var dark=cur?cur==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;
+var n=dark?'light':'dark';r.setAttribute('data-theme',n);try{localStorage.setItem('theme',n);}catch(e){}});})();
+</script>
+</body>
+</html>

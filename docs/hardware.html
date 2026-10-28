@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hardware — Environmental Monitoring Drone</title>
+<meta name="description" content="Wiring diagram, sensor interface circuits, corrected Geiger–Müller high-voltage supply, signal timing and bill of materials of the environmental monitoring drone.">
+<meta name="author" content="Cristian-Mihail Chirea">
+<link rel="canonical" href="https://rendo117.github.io/environmental-monitoring-drone/hardware.html">
+<meta property="og:title" content="Hardware — Environmental Monitoring Drone">
+<meta property="og:description" content="Wiring diagram, sensor interface circuits, corrected Geiger–Müller high-voltage supply, signal timing and bill of materials of the environmental monitoring drone.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://rendo117.github.io/environmental-monitoring-drone/assets/img/drone-photo.jpg">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar"><div class="bar-inner">
+<a class="home" href="./">Environmental Monitoring Drone</a>
+<nav aria-label="Sections">
+<a href="./">Overview</a>
+<a href="math.html">Mathematics</a>
+<a href="hardware.html" aria-current="page">Hardware</a>
+<a href="software.html">Software</a>
+<a href="simulation.html">Simulation</a>
+<a href="errata.html">Errata</a>
+<a class="gh" href="https://github.com/Rendo117/environmental-monitoring-drone">GitHub</a>
+</nav>
+</div></header>
+<main id="main">
+<div class="col">
+<h1>Hardware</h1>
+<p class="lede">An ATmega328P flies the aircraft. A Raspberry Pi 4 connects it to the internet. Three transducers measure the environment: an MQ-2 metal-oxide gas sensor, a Geiger–Müller tube and an MPU-6050 inertial sensor for attitude.</p>
+<p>All schematics on this page were redrawn for the 2026 revision with <a href="https://ctan.org/pkg/circuitikz">CircuiTikZ</a>. The LaTeX sources are in <a href="https://github.com/Rendo117/environmental-monitoring-drone/tree/main/hardware/schematics/src"><code>hardware/schematics/src</code></a>, so anyone can edit and rebuild them. Every figure is also available as PDF and SVG.</p>
+</div>
+
+<h2 class="col">Wiring</h2>
+<figure>
+  <div class="frame"><a href="assets/img/wiring.svg"><img src="assets/img/wiring.svg" alt="Wiring diagram of the whole aircraft: Raspberry Pi pins to Arduino D8 to D11, UART through a 1k/2k divider, sensors to D12, A3, A4 and A5, ESC signals from D4 to D7, power from a 3S LiPo through a PDB and a 5 V 3 A UBEC." width="1500" height="900"></a></div>
+  <figcaption><b>Figure 2.</b> Complete interconnection. Pin numbers on the Raspberry Pi are physical header pins. Compared with the 2022 Fritzing drawing, the Pi gets its own 5 V / 3 A regulator and the Arduino-to-Pi serial line goes through a voltage divider.</figcaption>
+</figure>
+
+<h2 class="col">Sensor interfaces</h2>
+<figure>
+  <div class="frame"><a href="assets/img/interfaces.svg"><img src="assets/img/interfaces.svg" alt="Three small circuits: the MQ-2 sensing resistor in a divider with a 1 kilo-ohm load into A3; the battery sense through a 1N4001 diode and a 1.5 k / 1 k divider into A0; and the 1 k / 2 k divider from the Arduino TX to the Raspberry Pi RX." width="1500" height="560"></a></div>
+  <figcaption><b>Figure 3.</b> (a) The MQ-2 read-out and the conversion from ADC counts to concentration. (b) Battery voltage sensing, matching the constants in the firmware. (c) The 5 V → 3.3 V level shift needed by the Raspberry Pi's UART input.</figcaption>
+</figure>
+
+<h2 class="col">Geiger–Müller counter</h2>
+<div class="col">
+<p>A 555 timer switches a MOSFET into the 6 V winding of a small mains transformer used backwards. A diode–capacitor doubler raises the secondary to about 400 V for the tube. Every ionising particle triggers a gas avalanche in the tube. The resulting current pulse turns on a 2N2222, which pulls the Arduino input low for a moment. The firmware counts these falling edges for 60 one-second windows.</p>
+<p class="note danger">Several hundred volts are present on the red nets, and the capacitors hold their charge after power-off. Rate C3 and C4 for at least 1 kV and discharge them before touching the board.</p>
+</div>
+<figure>
+  <div class="frame"><a href="assets/img/geiger.svg"><img src="assets/img/geiger.svg" alt="Corrected Geiger counter schematic: NE555 astable, IRLZ44N MOSFET, 6 V to 117 V transformer, UF4007 voltage doubler, 4.7 megaohm anode resistor, GM tube, 2N2222 pulse stage with collector output to Arduino D12." width="1500" height="720"></a></div>
+  <figcaption><b>Figure 4.</b> Corrected high-voltage supply and pulse detector. The note box lists every change against the 2022 drawing (Figure 5): diodes that were labelled as transistors, the output tap, the MOSFET drive and resistor values.</figcaption>
+</figure>
+<div class="pair">
+  <figure>
+    <div class="frame"><a href="assets/img/geiger-circuit-original.png"><img src="assets/img/geiger-circuit-original.png" alt="The original 2022 Geiger counter schematic as it appeared in the thesis." width="1452" height="552" loading="lazy"></a></div>
+    <figcaption><b>Figure 5.</b> The 2022 drawing (thesis Fig. 8), kept for comparison.</figcaption>
+  </figure>
+  <figure>
+    <div class="frame"><a href="assets/img/fritzing-wiring.png"><img src="assets/img/fritzing-wiring.png" alt="The original 2022 Fritzing breadboard drawing with a Raspberry Pi, Arduino Uno, four ESCs and motors, MQ-2 and MPU-6050." width="1426" height="831" loading="lazy"></a></div>
+    <figcaption><b>Figure 6.</b> The 2022 Fritzing view (thesis Fig. 1).</figcaption>
+  </figure>
+</div>
+
+<h2 class="col">Frame, motors and sign conventions</h2>
+<figure>
+  <div class="frame"><a href="assets/img/frames.svg"><img src="assets/img/frames.svg" alt="Top view of the X quadcopter with motors M1 front-left clockwise, M2 front-right counter-clockwise, M3 rear-left counter-clockwise, M4 rear-right clockwise, body axes, and the inertial frame with Euler angles." width="1500" height="640" loading="lazy"></a></div>
+  <figcaption><b>Figure 7.</b> Motor numbering and spin directions follow from the signs in the firmware mixer. Diagonal motors turn the same way, so their reaction torques cancel in hover. The bench procedure on the <a href="calibration.html">calibration page</a> checks every sign with the propellers removed.</figcaption>
+</figure>
+
+<h2 class="col">Signal timing</h2>
+<figure class="narrow">
+  <div class="frame"><a href="assets/img/timing.svg"><img src="assets/img/timing.svg" alt="Timing diagram: Raspberry Pi pulses of 1 to 2 ms every 20 ms; ESC pulses of 1.1 to 2 ms every 4 ms; and the 4 ms loop budget split between pulse generation, I2C read and computation." width="1000" height="560" loading="lazy"></a></div>
+  <figcaption><b>Figure 8.</b> The Raspberry Pi sends standard 50 Hz servo pulses. The flight controller measures them with pin-change interrupts and drives the ESCs at 250 Hz. Every task has to fit inside one 4 ms loop.</figcaption>
+</figure>
+
+<div class="col">
+<h2>Bill of materials</h2>
+</div>
+<div class="table-wrap"><table>
+<thead><tr><th>Qty</th><th>Part</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Raspberry Pi 4 Model B (≥ 2 GB), micro-SD 16 GB</td><td>companion computer, Raspberry Pi OS Lite 64-bit</td></tr>
+<tr><td>1</td><td>Arduino Uno R3 (ATmega328P)</td><td>flight controller</td></tr>
+<tr><td>1</td><td>GY-521 (MPU-6050)</td><td>3-axis gyroscope + 3-axis accelerometer, I²C 0x68</td></tr>
+<tr><td>1</td><td>MQ-2 module</td><td>LPG, CO and smoke; load resistor 1 kΩ</td></tr>
+<tr><td>1</td><td>Geiger board + SBM-20 or J305 tube</td><td>Figure 4</td></tr>
+<tr><td>1</td><td>F450 frame</td><td>450 mm diagonal</td></tr>
+<tr><td>4</td><td>Brushless motor 2212, 920–1000 KV</td><td>the thesis lists 2305/2450 KV racing motors, see errata D7</td></tr>
+<tr><td>4</td><td>Propeller 10 × 4.5″ (2 CW, 2 CCW)</td><td></td></tr>
+<tr><td>4</td><td>ESC 30 A</td><td>SimonK/BLHeli, accepts 250 Hz</td></tr>
+<tr><td>1</td><td>LiPo 3S 11.1 V, 2200–3300 mAh, XT60</td><td></td></tr>
+<tr><td>1</td><td>UBEC 5 V / 3 A</td><td>powers the Pi, the Uno and the sensors</td></tr>
+<tr><td>—</td><td>1N4001, 1.5 kΩ, 1 kΩ, 2 kΩ</td><td>battery sense and UART divider</td></tr>
+<tr><td>—</td><td><i>Recommended:</i> BMP280 barometer</td><td>needed for a controlled fail-safe descent</td></tr>
+</tbody></table></div>
+
+</main>
+<footer><div class="foot">
+<div>© 2022–2026 Cristian-Mihail Chirea. Code: MIT licence · Text and figures: CC BY 4.0.</div>
+<nav aria-label="Legal">
+<a href="legal.html">Legal notice</a>
+<a href="privacy.html">Privacy</a>
+<a href="terms.html">Terms of use</a>
+<a href="legal.html#licences">Licences</a>
+<button class="theme-toggle" type="button" id="theme">Toggle dark mode</button>
+</nav>
+</div></footer>
+<script>
+(function(){var b=document.getElementById('theme');if(!b)return;b.addEventListener('click',function(){
+var r=document.documentElement,cur=r.getAttribute('data-theme');
+var dark=cur?cur==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;
+var n=dark?'light':'dark';r.setAttribute('data-theme',n);try{localStorage.setItem('theme',n);}catch(e){}});})();
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+# systemd unit — start the bridge automatically at boot
+#   sudo cp drone-bridge.service /etc/systemd/system/
+#   sudo systemctl enable --now pigpiod drone-bridge
+[Unit]
+Description=Environmental drone Firebase <-> flight-controller bridge
+After=network-online.target pigpiod.service
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/home/pi/environmental-monitoring-drone/raspberry-pi
+ExecStart=/usr/bin/python3 bridge.py --config config.ini
+Restart=always
+RestartSec=2
+User=pi
+
+[Install]
+WantedBy=multi-user.target

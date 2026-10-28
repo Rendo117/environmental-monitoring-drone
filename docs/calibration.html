@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bench set-up, calibration and first-flight checklist — Environmental Monitoring Drone</title>
+<meta name="description" content="Bench set-up, sign checks, ESC and sensor calibration, first-flight checklist.">
+<meta name="author" content="Cristian-Mihail Chirea">
+<link rel="canonical" href="https://rendo117.github.io/environmental-monitoring-drone/calibration.html">
+<meta property="og:title" content="Bench set-up, calibration and first-flight checklist — Environmental Monitoring Drone">
+<meta property="og:description" content="Bench set-up, sign checks, ESC and sensor calibration, first-flight checklist.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://rendo117.github.io/environmental-monitoring-drone/assets/img/drone-photo.jpg">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar"><div class="bar-inner">
+<a class="home" href="./">Environmental Monitoring Drone</a>
+<nav aria-label="Sections">
+<a href="./">Overview</a>
+<a href="math.html">Mathematics</a>
+<a href="hardware.html">Hardware</a>
+<a href="software.html">Software</a>
+<a href="simulation.html">Simulation</a>
+<a href="errata.html">Errata</a>
+<a class="gh" href="https://github.com/Rendo117/environmental-monitoring-drone">GitHub</a>
+</nav>
+</div></header>
+<main id="main">
+<div class="prose"><h1>Bench set-up, calibration and first-flight checklist</h1>
+<blockquote>
+<p><span aria-hidden="true">▲</span> <strong>Do every step with the propellers removed</strong> until step 6.</p>
+</blockquote>
+<h2>1. Flash the flight controller</h2>
+<ol>
+<li>Arduino IDE 2.x → open <code>firmware/flight_controller/flight_controller.ino</code> (keep <code>config.h</code> in the same folder).</li>
+<li>Board <strong>Arduino Uno</strong>, upload. LED 13 stays on for ~8 s while the gyro is calibrated, so keep the frame still and level.</li>
+<li>Host-side test (no hardware): <code>cd firmware/host_test &amp;&amp; g++ -std=gnu++17 -I. -x c++ main.cpp -o fc_test &amp;&amp; ./fc_test</code></li>
+</ol>
+<h2>2. Sign check of the IMU (fixes errata A1)</h2>
+<p>Open the Serial Monitor at 115 200 Bd. Telemetry frames look like
+<code>$T,&lt;status&gt;,&lt;fs&gt;,&lt;roll×10&gt;,&lt;pitch×10&gt;,&lt;yawrate×10&gt;,&lt;gas&gt;,&lt;cps&gt;,&lt;cpm&gt;,&lt;vbat&gt;*CS</code>.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Action</th>
+<th>Expected</th>
+<th>If wrong, flip</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>lift the <strong>left</strong> side</td>
+<td>roll field <strong>positive</strong></td>
+<td><code>GYRO_X_SIGN</code> <strong>and</strong> <code>ACC_Y_SIGN</code></td>
+</tr>
+<tr>
+<td>lift the <strong>nose</strong></td>
+<td>pitch field <strong>positive</strong></td>
+<td><code>GYRO_Y_SIGN</code> <strong>and</strong> <code>ACC_X_SIGN</code></td>
+</tr>
+<tr>
+<td>rotate the nose to the <strong>right</strong></td>
+<td>yaw-rate field <strong>positive</strong> while turning</td>
+<td><code>GYRO_Z_SIGN</code></td>
+</tr>
+<tr>
+<td>tilt and hold 10 s</td>
+<td>the angle stays put (no slow drift back to 0)</td>
+<td>the ACC sign of that axis only</td>
+</tr>
+</tbody>
+</table></div>
+<p>Always flip the gyro and accelerometer sign of an axis <strong>together</strong>, unless the last test shows
+that only the accelerometer disagrees.</p>
+<h2>3. Motor direction and mixer check (props off)</h2>
+<ol>
+<li>Arm from the ground station: <strong>ARM</strong> (throttle 0 + yaw 0, then yaw 50).</li>
+<li>Throttle 15 %. All four motors spin. Check the directions: M1 front-left <strong>CW</strong>, M2 front-right <strong>CCW</strong>,
+   M3 rear-left <strong>CCW</strong>, M4 rear-right <strong>CW</strong>. To reverse a motor, swap any two of its three wires.</li>
+<li>Tilt the frame by hand to the <strong>left side down</strong>. The <strong>left</strong> motors (M1, M3) must speed up.</li>
+<li>Tilt <strong>nose down</strong>. The <strong>front</strong> motors (M1, M2) must speed up.</li>
+<li>Yaw the frame <strong>to the right</strong> by hand. M1 and M4 (CW) must speed up.</li>
+<li><strong>DISARM</strong> (throttle 0 + yaw 100). All motors stop.</li>
+</ol>
+<h2>4. ESC calibration</h2>
+<p>Calibrate all four ESCs to the same 1000–2000 µs range with a servo tester or the usual
+"full throttle at power-up" procedure from the ESC manual.</p>
+<h2>5. Payload sensors</h2>
+<ul>
+<li><strong>MQ-2:</strong> run it powered for 24 h once (burn-in), then 3 min before each use. In clean outdoor air, read
+  the <code>gas</code> field (ADC) and run <code>python3 raspberry-pi/bridge.py --calibrate-mq2 &lt;ADC&gt;</code>. Put the printed
+  R0 into <code>config.ini</code>.</li>
+<li><strong>Geiger:</strong> with a high-impedance probe (≥ 1 GΩ divider) set the 555 frequency/duty so the tube runs
+  in the middle of its plateau (SBM-20: ~400 V). In the open air, expect 15–30 CPM (≈ 0.1 µSv/h).
+  Set <code>geiger_tube</code> in <code>config.ini</code>.</li>
+<li><strong>Battery:</strong> compare the <code>vbat</code> field with a multimeter. If needed, adjust <code>BATT_SCALE</code> / <code>BATT_OFFSET</code> in <code>config.h</code>.</li>
+</ul>
+<h2>6. First flight</h2>
+<ul>
+<li>Open field, away from people, line of sight, light wind, fully charged pack.</li>
+<li>Check the fail-safe on the ground first: arm, throttle 20 % (props <strong>on</strong>, aircraft tied down),
+  then stop <code>bridge.py</code>. The motors must spool down within ~1.5 s and disarm.</li>
+<li>Fly the first flights from the ground station with <strong>Wi-Fi on the same network</strong> to keep latency low.
+  Try the internet/4G path only after that.</li>
+</ul></div>
+</main>
+<footer><div class="foot">
+<div>© 2022–2026 Cristian-Mihail Chirea. Code: MIT licence · Text and figures: CC BY 4.0.</div>
+<nav aria-label="Legal">
+<a href="legal.html">Legal notice</a>
+<a href="privacy.html">Privacy</a>
+<a href="terms.html">Terms of use</a>
+<a href="legal.html#licences">Licences</a>
+<button class="theme-toggle" type="button" id="theme">Toggle dark mode</button>
+</nav>
+</div></footer>
+<script>
+(function(){var b=document.getElementById('theme');if(!b)return;b.addEventListener('click',function(){
+var r=document.documentElement,cur=r.getAttribute('data-theme');
+var dark=cur?cur==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;
+var n=dark?'light':'dark';r.setAttribute('data-theme',n);try{localStorage.setItem('theme',n);}catch(e){}});})();
+</script>
+</body>
+</html>

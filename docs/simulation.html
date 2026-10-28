@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulation — Environmental Monitoring Drone</title>
+<meta name="description" content="Nonlinear 6-DOF simulation of the quadcopter running the exact firmware control law: step and disturbance responses, Bode stability margins, estimator behaviour, fail-safe descent and sensor statistics.">
+<meta name="author" content="Cristian-Mihail Chirea">
+<link rel="canonical" href="https://rendo117.github.io/environmental-monitoring-drone/simulation.html">
+<meta property="og:title" content="Simulation — Environmental Monitoring Drone">
+<meta property="og:description" content="Nonlinear 6-DOF simulation of the quadcopter running the exact firmware control law: step and disturbance responses, Bode stability margins, estimator behaviour, fail-safe descent and sensor statistics.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://rendo117.github.io/environmental-monitoring-drone/assets/img/drone-photo.jpg">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar"><div class="bar-inner">
+<a class="home" href="./">Environmental Monitoring Drone</a>
+<nav aria-label="Sections">
+<a href="./">Overview</a>
+<a href="math.html">Mathematics</a>
+<a href="hardware.html">Hardware</a>
+<a href="software.html">Software</a>
+<a href="simulation.html" aria-current="page">Simulation</a>
+<a href="errata.html">Errata</a>
+<a class="gh" href="https://github.com/Rendo117/environmental-monitoring-drone">GitHub</a>
+</nav>
+</div></header>
+<main id="main">
+<div class="col">
+<h1>Simulation</h1>
+<p class="lede">The thesis tuned its PID gains by experiment. Here they are tested against a model. <a href="https://github.com/Rendo117/environmental-monitoring-drone/blob/main/simulation/quad_sim.py"><code>quad_sim.py</code></a> integrates the Newton–Euler equations of the <a href="math.html">mathematical model</a> at 2 kHz. It runs a line-by-line Python copy of the firmware at 250 Hz, including the integer sensor readings, both low-pass filters and the motor limits.</p>
+<p>The airframe constants are estimates for an F450-class frame weighing 1.2 kg, so treat the numbers as indicative. A thrust-stand measurement and a bifilar-pendulum test of the real aircraft would replace them.</p>
+<pre><code>cd simulation
+python3 quad_sim.py    # writes the figures and results/summary.json</code></pre>
+</div>
+
+<h2 class="col">Response to a roll command</h2>
+<figure class="narrow">
+  <div class="frame"><a href="assets/img/sim-roll-step.png"><img src="assets/img/sim-roll-step.png" alt="Roll angle rising from 0 to about 6 to 7 degrees after a stick step at 1 s and returning near zero after release at 3.5 s; ESC pulses spike briefly at each step." width="1100" height="860"></a></div>
+  <figcaption><b>Figure 13.</b> A 1500 → 1600 µs roll stick commands <img class="eq" src="assets/eq/17ca9dede740.svg" alt="(1600-1508)/15 = 6.13^\circ" style="width:11.191em;height:1.120em;vertical-align:-0.310em">. Rise time (10–90 %) is 0.86 s and overshoot is below 1 %. The last degree of error comes from the estimator. On a multirotor the accelerometer barely sees tilt, so gyro integration error decays only with the filter's 10 s time constant.</figcaption>
+</figure>
+
+<h2 class="col">Rejecting a gust</h2>
+<figure class="narrow">
+  <div class="frame"><a href="assets/img/sim-disturbance.png"><img src="assets/img/sim-disturbance.png" alt="Roll angle peaking just under 2 degrees after a 50 ms torque pulse and returning within about 0.15 s." width="1100" height="520" loading="lazy"></a></div>
+  <figcaption><b>Figure 14.</b> A 0.4 N·m, 50 ms roll torque, roughly a strong gust on one arm, tilts the hovering aircraft by 1.9°. It is back within 1° after 0.14 s.</figcaption>
+</figure>
+
+<h2 class="col">Stability margins</h2>
+<figure class="narrow">
+  <div class="frame"><a href="assets/img/sim-bode.png"><img src="assets/img/sim-bode.png" alt="Bode plot of the open roll-rate loop: magnitude crossing 0 dB at 7.4 Hz with 52 degrees phase margin; phase crossing minus 180 degrees at 18.7 Hz with 10.6 dB gain margin." width="1100" height="780" loading="lazy"></a></div>
+  <figcaption><b>Figure 15.</b> Open-loop frequency response of the roll-rate loop. It is linearised at hover and includes the zero-order hold, one sample of computation delay and the firmware's rate filter. A 52° phase margin and a 10.6 dB gain margin are comfortable values for a multirotor.</figcaption>
+</figure>
+
+<h2 class="col">The pitch sign error</h2>
+<figure class="narrow">
+  <div class="frame"><a href="assets/img/sim-pitch-sign-bug.png"><img src="assets/img/sim-pitch-sign-bug.png" alt="Two pitch responses to the same command: the corrected firmware settles near the target; the 2022 firmware diverges exponentially past 70 degrees within 0.65 s." width="1100" height="560" loading="lazy"></a></div>
+  <figcaption><b>Figure 16.</b> In 2022 the pitch angle was integrated from <img class="eq" src="assets/eq/9dc2e3a311d4.svg" alt="-g_y" style="width:1.855em;height:0.989em;vertical-align:-0.346em"> while the PID used <img class="eq" src="assets/eq/93040e2b75d5.svg" alt="+g_y" style="width:1.855em;height:0.989em;vertical-align:-0.346em"> as the pitch rate. The self-levelling loop then becomes <img class="eq" src="assets/eq/66d059336f43.svg" alt="\dot\varphi = +5\varphi" style="width:4.039em;height:0.982em;vertical-align:-0.254em">, an exponential with a 0.2 s time constant. The roll axis did not have this error.</figcaption>
+</figure>
+
+<h2 class="col">Attitude estimation</h2>
+<figure class="narrow">
+  <div class="frame"><a href="assets/img/sim-complementary.png"><img src="assets/img/sim-complementary.png" alt="Comparison over 60 s: noisy accelerometer angle, drifting gyroscope-only angle and the complementary filter output following the true angle closely." width="1100" height="560" loading="lazy"></a></div>
+  <figcaption><b>Figure 17.</b> Integrating the gyro alone drifts (here 3° in a minute from a 0.05 °/s bias). The accelerometer alone is noisy (2° rms of vibration). The complementary filter keeps the best of both: 0.56° rms error. Its steady-state bias error is <img class="eq" src="assets/eq/f9f2ab434d24.svg" alt="\beta\tau = 0.05 \cdot 10 = 0.5^\circ" style="width:9.193em;height:1.009em;vertical-align:-0.254em">.</figcaption>
+</figure>
+
+<h2 class="col">Fail-safe descent</h2>
+<figure class="narrow">
+  <div class="frame"><a href="assets/img/sim-failsafe.png"><img src="assets/img/sim-failsafe.png" alt="Altitude against time after link loss at 30 m: ramp at 250 microseconds per second hits the ground in 3.5 s, ramp at 25 microseconds per second in 6.9 s, barometric vertical-speed loop descends linearly in 30 s." width="1100" height="780" loading="lazy"></a></div>
+  <figcaption><b>Figure 18.</b> Without an altitude sensor the fail-safe can only lower the throttle open-loop. A fast ramp hits the ground at 20 m/s and the slower new default at 11 m/s. A barometer with a vertical-speed loop would land at 1.2 m/s, which makes it the single most useful hardware addition.</figcaption>
+</figure>
+
+<h2 class="col">Sensor statistics</h2>
+<div class="pair">
+  <figure>
+    <div class="frame"><a href="assets/img/sim-geiger-uncertainty.png"><img src="assets/img/sim-geiger-uncertainty.png" alt="Relative uncertainty against counting time for 20, 200 and 2000 counts per minute; at 60 s and 20 CPM it is 22 percent." width="1100" height="540" loading="lazy"></a></div>
+    <figcaption><b>Figure 19.</b> Radioactive decay is random, so a count <img class="eq" src="assets/eq/6fca55ca3c82.svg" alt="N" style="width:1.032em;height:0.803em;vertical-align:-0.060em"> carries an uncertainty of <img class="eq" src="assets/eq/81d5613a478e.svg" alt="\sqrt N" style="width:1.866em;height:1.160em;vertical-align:-0.173em">. At natural background the 60 s window gives ±22 %. Near a source the reading becomes precise within seconds.</figcaption>
+  </figure>
+  <figure>
+    <div class="frame"><a href="assets/img/sim-mq2-curves.png"><img src="assets/img/sim-mq2-curves.png" alt="Log-log sensitivity curves of the MQ-2 for LPG, CO and smoke between 200 and 10000 ppm, with the clean-air ratio of 9.83 marked." width="900" height="640" loading="lazy"></a></div>
+    <figcaption><b>Figure 20.</b> MQ-2 sensitivity from the datasheet. The sensor responds to all three gases at once, so a reading is reported as LPG-, CO- or smoke-equivalent rather than as an identified gas.</figcaption>
+  </figure>
+</div>
+
+</main>
+<footer><div class="foot">
+<div>© 2022–2026 Cristian-Mihail Chirea. Code: MIT licence · Text and figures: CC BY 4.0.</div>
+<nav aria-label="Legal">
+<a href="legal.html">Legal notice</a>
+<a href="privacy.html">Privacy</a>
+<a href="terms.html">Terms of use</a>
+<a href="legal.html#licences">Licences</a>
+<button class="theme-toggle" type="button" id="theme">Toggle dark mode</button>
+</nav>
+</div></footer>
+<script>
+(function(){var b=document.getElementById('theme');if(!b)return;b.addEventListener('click',function(){
+var r=document.documentElement,cur=r.getAttribute('data-theme');
+var dark=cur?cur==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;
+var n=dark?'light':'dark';r.setAttribute('data-theme',n);try{localStorage.setItem('theme',n);}catch(e){}});})();
+</script>
+</body>
+</html>

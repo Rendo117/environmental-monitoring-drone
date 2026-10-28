@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite it as below."
+title: "Environmental monitoring drone for emergency situations"
+authors:
+  - family-names: Chirea
+    given-names: Cristian-Mihail
+type: software
+date-released: 2026-10-28
+version: "2.0"
+license: MIT
+repository-code: "https://github.com/Rendo117/environmental-monitoring-drone"
+url: "https://rendo117.github.io/environmental-monitoring-drone/"
+keywords: [quadcopter, drone, Geiger counter, MQ-2, Firebase, Raspberry Pi, ATmega328P, PID]
+references:
+  - type: thesis
+    title: "Dronă de colectare a datelor despre mediul înconjurător în situații de urgență"
+    authors:
+      - family-names: Chirea
+        given-names: Cristian-Mihail
+    institution:
+      name: "University of Craiova, Faculty of Automation, Computers and Electronics"
+    year: 2022

@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mathematical model of the quadcopter, extended and corrected — Environmental Monitoring Drone</title>
+<meta name="description" content="Mathematical model of the quadcopter: kinematics, Newton–Euler dynamics, X-frame allocation, linearisation, PID and estimator analysis.">
+<meta name="author" content="Cristian-Mihail Chirea">
+<link rel="canonical" href="https://rendo117.github.io/environmental-monitoring-drone/math.html">
+<meta property="og:title" content="Mathematical model of the quadcopter, extended and corrected — Environmental Monitoring Drone">
+<meta property="og:description" content="Mathematical model of the quadcopter: kinematics, Newton–Euler dynamics, X-frame allocation, linearisation, PID and estimator analysis.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://rendo117.github.io/environmental-monitoring-drone/assets/img/drone-photo.jpg">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar"><div class="bar-inner">
+<a class="home" href="./">Environmental Monitoring Drone</a>
+<nav aria-label="Sections">
+<a href="./">Overview</a>
+<a href="math.html" aria-current="page">Mathematics</a>
+<a href="hardware.html">Hardware</a>
+<a href="software.html">Software</a>
+<a href="simulation.html">Simulation</a>
+<a href="errata.html">Errata</a>
+<a class="gh" href="https://github.com/Rendo117/environmental-monitoring-drone">GitHub</a>
+</nav>
+</div></header>
+<main id="main">
+<div class="prose"><h1>Mathematical model of the quadcopter, extended and corrected</h1>
+<p>This chapter replaces and extends Chapter 3 of the 2022 thesis (<em>Modelul matematic al dronei</em>).
+It follows Luukkonen, <em>Modelling and control of quadcopter</em> (Aalto University, 2011), which
+is reference [13] of the thesis, and adds the parts the original chapter did not cover: the
+translational dynamics, hover equilibrium, X-frame allocation, linearisation, the controller
+actually running on the ATmega328P, the estimator, and the sensor models. Each result is
+checked numerically in <a href="https://github.com/Rendo117/environmental-monitoring-drone/blob/main/simulation/quad_sim.py"><code>simulation/quad_sim.py</code></a>.</p>
+<p>Corrections to the 2022 text are marked <strong><span aria-hidden="true">▲</span> correction</strong>.</p>
+<hr />
+<h2>1. Generalised coordinates</h2>
+<p>The absolute position of the centre of mass in the inertial frame <img class="eq" src="assets/eq/91aee89e08a7.svg" alt="\{x_I, y_I, z_I\}" style="width:4.912em;height:1.120em;vertical-align:-0.310em"> (<img class="eq" src="assets/eq/9234690c63a2.svg" alt="z" style="width:0.629em;height:0.551em;vertical-align:-0.060em"> up) is
+<img class="eq" src="assets/eq/f29d23dfcbe4.svg" alt="\boldsymbol\xi" style="width:0.659em;height:1.009em;vertical-align:-0.254em">. The attitude is given by the Z-Y-X Euler angles <img class="eq" src="assets/eq/9327a7a87029.svg" alt="\boldsymbol\eta" style="width:0.757em;height:0.759em;vertical-align:-0.254em">: roll <img class="eq" src="assets/eq/7d46db04b83f.svg" alt="\phi" style="width:0.716em;height:1.009em;vertical-align:-0.254em">
+about <img class="eq" src="assets/eq/15efe73a427c.svg" alt="x" style="width:0.692em;height:0.551em;vertical-align:-0.060em">, pitch <img class="eq" src="assets/eq/a14b0838faa7.svg" alt="\theta" style="width:0.617em;height:0.814em;vertical-align:-0.060em"> about <img class="eq" src="assets/eq/11b388f063b4.svg" alt="y" style="width:0.646em;height:0.745em;vertical-align:-0.254em">, yaw <img class="eq" src="assets/eq/bc2997ed7704.svg" alt="\psi" style="width:0.807em;height:1.009em;vertical-align:-0.254em"> about <img class="eq" src="assets/eq/9234690c63a2.svg" alt="z" style="width:0.629em;height:0.551em;vertical-align:-0.060em">.</p>
+<div class="display-eq"><img class="eq" src="assets/eq/5f26d4c21b77.svg" alt="\boldsymbol\xi=\begin{bmatrix}x\\y\\z\end{bmatrix},\qquad
+\boldsymbol\eta=\begin{bmatrix}\phi\\\theta\\\psi\end{bmatrix},\qquad
+\mathbf q=\begin{bmatrix}\boldsymbol\xi\\\boldsymbol\eta\end{bmatrix}\in\mathbb R^{6}" style="width:19.136em;height:3.720em"></div>
+<p><strong><span aria-hidden="true">▲</span> correction:</strong> the thesis wrote <img class="eq" src="assets/eq/ab86433ea4c6.svg" alt="\mathbf q = [-\boldsymbol\xi;\ \boldsymbol\eta]" style="width:5.347em;height:1.120em;vertical-align:-0.310em">. The minus sign is a typo.</p>
+<p>Body-frame linear and angular velocities:</p>
+<div class="display-eq"><img class="eq" src="assets/eq/c8792f8e69ca.svg" alt="\mathbf V_B=\begin{bmatrix}v_{x,B}\\v_{y,B}\\v_{z,B}\end{bmatrix},\qquad
+\boldsymbol\nu=\begin{bmatrix}p\\q\\r\end{bmatrix}" style="width:12.635em;height:3.720em"></div>
+<h2>2. Kinematics</h2>
+<p><strong>Rotation matrix</strong> (body → inertial), with <img class="eq" src="assets/eq/4e525f016ae0.svg" alt="S_x=\sin x" style="width:4.536em;height:0.953em;vertical-align:-0.210em">, <img class="eq" src="assets/eq/fd01e0803b4d.svg" alt="C_x=\cos x" style="width:4.749em;height:0.953em;vertical-align:-0.210em">:</p>
+<div class="display-eq"><img class="eq" src="assets/eq/bf5e24247141.svg" alt="R = R_z(\psi)R_y(\theta)R_x(\phi)=
+\begin{bmatrix}
+C_\psi C_\theta &amp; C_\psi S_\theta S_\phi - S_\psi C_\phi &amp; C_\psi S_\theta C_\phi + S_\psi S_\phi\\
+S_\psi C_\theta &amp; S_\psi S_\theta S_\phi + C_\psi C_\phi &amp; S_\psi S_\theta C_\phi - C_\psi S_\phi\\
+-S_\theta &amp; C_\theta S_\phi &amp; C_\theta C_\phi
+\end{bmatrix}" style="width:31.637em;height:3.720em"></div>
+<p><img class="eq" src="assets/eq/24a9722fef28.svg" alt="R\in SO(3)" style="width:4.848em;height:1.120em;vertical-align:-0.310em">: <img class="eq" src="assets/eq/67558b1fbc17.svg" alt="R^{-1}=R^{\mathsf T}" style="width:4.619em;height:0.969em;vertical-align:-0.060em"> and <img class="eq" src="assets/eq/d33c51197457.svg" alt="\det R = 1" style="width:4.276em;height:0.814em;vertical-align:-0.060em">.</p>
+<p><strong>Euler-rate transformation:</strong></p>
+<div class="display-eq"><img class="eq" src="assets/eq/6e8f69c8ce37.svg" alt="\dot{\boldsymbol\eta}=W_\eta^{-1}\boldsymbol\nu,\qquad
+W_\eta^{-1}=\begin{bmatrix}1 &amp; S_\phi T_\theta &amp; C_\phi T_\theta\\ 0 &amp; C_\phi &amp; -S_\phi\\ 0 &amp; S_\phi/C_\theta &amp; C_\phi/C_\theta\end{bmatrix},\qquad
+W_\eta=\begin{bmatrix}1&amp;0&amp;-S_\theta\\0&amp;C_\phi&amp;C_\theta S_\phi\\0&amp;-S_\phi&amp;C_\theta C_\phi\end{bmatrix}" style="width:33.929em;height:3.720em"></div>
+<p>Since <img class="eq" src="assets/eq/174498302cc6.svg" alt="\det W_\eta = \cos\theta" style="width:6.443em;height:1.101em;vertical-align:-0.346em">, the matrix is invertible if and only if</p>
+<div class="display-eq"><img class="eq" src="assets/eq/98e9013519e3.svg" alt="\theta \neq \frac{(2k-1)\pi}{2},\qquad k\in\mathbb Z ." style="width:11.512em;height:2.232em"></div>
+<p><strong><span aria-hidden="true">▲</span> correction:</strong> the thesis wrote <img class="eq" src="assets/eq/8e4143d907b4.svg" alt="\theta \neq (2k-1)\phi/2" style="width:7.098em;height:1.120em;vertical-align:-0.310em">. The singularity (gimbal lock) is at
+<img class="eq" src="assets/eq/e98d2bddcf98.svg" alt="\theta = \pm 90^\circ" style="width:4.188em;height:0.898em;vertical-align:-0.143em"> and does not depend on <img class="eq" src="assets/eq/7d46db04b83f.svg" alt="\phi" style="width:0.716em;height:1.009em;vertical-align:-0.254em">.</p>
+<h2>3. Rotor forces and torques</h2>
+<p>Rotor <img class="eq" src="assets/eq/aa0d39900454.svg" alt="i" style="width:0.465em;height:0.780em;vertical-align:-0.060em">, spinning at <img class="eq" src="assets/eq/98d78bf984a3.svg" alt="\omega_i" style="width:1.075em;height:0.701em;vertical-align:-0.210em">, produces a thrust along its axis and a reaction (drag) torque:</p>
+<div class="display-eq"><img class="eq" src="assets/eq/0e49ee311915.svg" alt="f_i = k\,\omega_i^{2},\qquad \tau_{M_i} = b\,\omega_i^{2} + I_M\,\dot\omega_i" style="width:14.820em;height:1.234em"></div>
+<p>where <img class="eq" src="assets/eq/51e1cd58b4b3.svg" alt="k" style="width:0.672em;height:0.814em;vertical-align:-0.060em"> is the lift constant, <img class="eq" src="assets/eq/5a075f7a1f43.svg" alt="b" style="width:0.549em;height:0.814em;vertical-align:-0.060em"> the drag constant and <img class="eq" src="assets/eq/c42daf28f23d.svg" alt="I_M" style="width:1.447em;height:0.953em;vertical-align:-0.210em"> the rotor inertia. The <img class="eq" src="assets/eq/80be69e6a1e4.svg" alt="I_M\dot\omega_i" style="width:2.403em;height:0.953em;vertical-align:-0.210em">
+term is small and usually neglected. Total thrust in the body frame:</p>
+<div class="display-eq"><img class="eq" src="assets/eq/ce1e5e081884.svg" alt="T=\sum_{i=1}^{4} f_i = k\sum_{i=1}^{4}\omega_i^{2},\qquad \mathbf T_B=\begin{bmatrix}0\\0\\T\end{bmatrix}" style="width:16.703em;height:3.720em"></div>
+<h3>3.1 "+" configuration (the one written in the thesis)</h3>
+<div class="display-eq"><img class="eq" src="assets/eq/ba68b56dfe38.svg" alt="\boldsymbol\tau_B=\begin{bmatrix}\tau_\phi\\\tau_\theta\\\tau_\psi\end{bmatrix}=
+\begin{bmatrix} l k\,(-\omega_2^2+\omega_4^2)\\ l k\,(-\omega_1^2+\omega_3^2)\\ \sum_{i=1}^4 (-1)^{i+1}\,\tau_{M_i}\end{bmatrix}" style="width:15.374em;height:3.834em"></div>
+<p><strong><span aria-hidden="true">▲</span> correction:</strong> the yaw torque needs the alternating sign <img class="eq" src="assets/eq/d9ecad26d760.svg" alt="(-1)^{i+1}" style="width:3.521em;height:1.196em;vertical-align:-0.310em">, or an equivalent
+signed sum. Adjacent rotors spin in opposite directions, so their reaction torques cancel. A plain
+<img class="eq" src="assets/eq/acaee381d321.svg" alt="\sum\tau_{M_i}" style="width:2.909em;height:1.120em;vertical-align:-0.310em"> would never be zero, and the aircraft could not hold its heading.</p>
+<h3>3.2 "X" configuration (the built drone)</h3>
+<p>The firmware mixer and the photo of the aircraft show an <strong>X</strong> frame. Motors sit at
+<img class="eq" src="assets/eq/b59e4b5760bc.svg" alt="(\pm a, \pm a)" style="width:3.955em;height:1.120em;vertical-align:-0.310em"> with <img class="eq" src="assets/eq/c4573ef1173c.svg" alt="a = l/\sqrt2" style="width:4.133em;height:1.277em;vertical-align:-0.310em">, numbered M1 front-left, M2 front-right, M3 rear-left and
+M4 rear-right. M1 and M4 spin CW, M2 and M3 CCW. With <img class="eq" src="assets/eq/deae0e1154c2.svg" alt="\mathbf r_i\times f_i\mathbf e_z = (y_i f_i,\,-x_i f_i,\,0)" style="width:11.943em;height:1.120em;vertical-align:-0.310em">:</p>
+<div class="display-eq"><img class="eq" src="assets/eq/b32040e9ab00.svg" alt="\begin{bmatrix}T\\\tau_\phi\\\tau_\theta\\\tau_\psi\end{bmatrix}=
+\underbrace{\begin{bmatrix}
+k&amp;k&amp;k&amp;k\\
+ak&amp;-ak&amp;ak&amp;-ak\\
+-ak&amp;-ak&amp;ak&amp;ak\\
+b&amp;-b&amp;-b&amp;b
+\end{bmatrix}}_{M}
+\begin{bmatrix}\omega_1^2\\\omega_2^2\\\omega_3^2\\\omega_4^2\end{bmatrix},
+\qquad
+M^{-1}=\frac14\begin{bmatrix}
+1/k &amp; 1/(ak) &amp; -1/(ak) &amp; 1/b\\
+1/k &amp; -1/(ak) &amp; -1/(ak) &amp; -1/b\\
+1/k &amp; 1/(ak) &amp; 1/(ak) &amp; -1/b\\
+1/k &amp; -1/(ak) &amp; 1/(ak) &amp; 1/b
+\end{bmatrix}" style="width:39.919em;height:6.385em"></div>
+<p><img class="eq" src="assets/eq/9987756e0d7a.svg" alt="M^{-1}" style="width:2.273em;height:0.934em;vertical-align:-0.060em"> is the <strong>control-allocation</strong> matrix. Up to sign conventions and the linear
+µs→ω² approximation, it is the motor mixer in the firmware:</p>
+<div class="display-eq"><img class="eq" src="assets/eq/326869e82411.svg" alt="\begin{aligned}
+u_1 &amp;= T - r - p + y, &amp; u_2 &amp;= T + r - p - y,\\
+u_3 &amp;= T - r + p - y, &amp; u_4 &amp;= T + r + p + y,
+\end{aligned}" style="width:18.181em;height:2.820em"></div>
+<p>Here <img class="eq" src="assets/eq/92405cecdcc3.svg" alt="r, p, y" style="width:2.462em;height:0.745em;vertical-align:-0.254em"> are the PID outputs (µs) for roll, pitch and yaw, with the firmware convention
+roll + = left side up, pitch + = nose up, yaw + = nose right.</p>
+<h2>4. Dynamics (Newton–Euler)</h2>
+<p><strong>Translation</strong> (inertial frame), with the linear drag matrix <img class="eq" src="assets/eq/34a9aec346b1.svg" alt="A=\mathrm{diag}(A_x,A_y,A_z)" style="width:9.412em;height:1.156em;vertical-align:-0.346em">:</p>
+<div class="display-eq"><img class="eq" src="assets/eq/a3b1d9bcb2bd.svg" alt="m\ddot{\boldsymbol\xi}= \begin{bmatrix}0\\0\\-mg\end{bmatrix} + R\,\mathbf T_B - A\dot{\boldsymbol\xi}
+\quad\Longleftrightarrow\quad
+\begin{cases}
+\ddot x = \dfrac{T}{m}\,(C_\psi S_\theta C_\phi + S_\psi S_\phi) - \dfrac{A_x}{m}\dot x\\[6pt]
+\ddot y = \dfrac{T}{m}\,(S_\psi S_\theta C_\phi - C_\psi S_\phi) - \dfrac{A_y}{m}\dot y\\[6pt]
+\ddot z = -g + \dfrac{T}{m}\,C_\theta C_\phi - \dfrac{A_z}{m}\dot z
+\end{cases}" style="width:33.393em;height:6.949em"></div>
+<p><strong>Rotation</strong> (body frame, Euler's equation with rotor gyroscopic moment <img class="eq" src="assets/eq/fa1b9e084ec3.svg" alt="\boldsymbol\Gamma" style="width:0.812em;height:0.806em;vertical-align:-0.060em">):</p>
+<div class="display-eq"><img class="eq" src="assets/eq/bd5bebacab4a.svg" alt="I\dot{\boldsymbol\nu} + \boldsymbol\nu\times(I\boldsymbol\nu) + \boldsymbol\Gamma = \boldsymbol\tau_B,\qquad
+\boldsymbol\Gamma = I_M\,(\boldsymbol\nu\times\mathbf e_z)\,\omega_\Gamma,\qquad
+\omega_\Gamma = -\omega_1+\omega_2+\omega_3-\omega_4" style="width:35.511em;height:1.120em"></div>
+<p>With <img class="eq" src="assets/eq/d563de580955.svg" alt="I=\mathrm{diag}(I_{xx},I_{yy},I_{zz})" style="width:9.544em;height:1.156em;vertical-align:-0.346em">:</p>
+<div class="display-eq"><img class="eq" src="assets/eq/9fb33b8b9559.svg" alt="\begin{aligned}
+\dot p &amp;= \frac{I_{yy}-I_{zz}}{I_{xx}}\,q r - \frac{I_M}{I_{xx}}\,q\,\omega_\Gamma + \frac{\tau_\phi}{I_{xx}}\\
+\dot q &amp;= \frac{I_{zz}-I_{xx}}{I_{yy}}\,p r + \frac{I_M}{I_{yy}}\,p\,\omega_\Gamma + \frac{\tau_\theta}{I_{yy}}\\
+\dot r &amp;= \frac{I_{xx}-I_{yy}}{I_{zz}}\,p q + \frac{\tau_\psi}{I_{zz}}
+\end{aligned}" style="width:14.909em;height:7.643em"></div>
+<p>The system has 6 degrees of freedom and only 4 independent inputs (<img class="eq" src="assets/eq/58afa7be0918.svg" alt="T,\tau_\phi,\tau_\theta,\tau_\psi" style="width:5.020em;height:1.089em;vertical-align:-0.346em">),
+so it is <strong>under-actuated</strong>. Horizontal motion is obtained only by tilting the thrust vector.</p>
+<p><strong><span aria-hidden="true">▲</span> correction:</strong> the thesis says "we can control only φ, θ and ψ". The inputs are actually the
+total thrust <strong>and</strong> the three torques. Altitude <img class="eq" src="assets/eq/9234690c63a2.svg" alt="z" style="width:0.629em;height:0.551em;vertical-align:-0.060em"> is directly actuated, while <img class="eq" src="assets/eq/15efe73a427c.svg" alt="x" style="width:0.692em;height:0.551em;vertical-align:-0.060em"> and <img class="eq" src="assets/eq/11b388f063b4.svg" alt="y" style="width:0.646em;height:0.745em;vertical-align:-0.254em"> are not.</p>
+<h2>5. Hover equilibrium (numerical values used in the simulation)</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Quantity</th>
+<th>Symbol</th>
+<th>Value</th>
+<th>Basis</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>mass</td>
+<td><img class="eq" src="assets/eq/04ee41167eac.svg" alt="m" style="width:0.998em;height:0.551em;vertical-align:-0.060em"></td>
+<td>1.20 kg</td>
+<td>F450 frame, 4 motors, RPi 4, Uno, sensors, 3S 2200 mAh</td>
+</tr>
+<tr>
+<td>arm length</td>
+<td><img class="eq" src="assets/eq/9e855a218f52.svg" alt="l" style="width:0.438em;height:0.814em;vertical-align:-0.060em"></td>
+<td>0.225 m</td>
+<td>F450</td>
+</tr>
+<tr>
+<td>inertia</td>
+<td><img class="eq" src="assets/eq/242b7763569c.svg" alt="I_{xx}=I_{yy}" style="width:4.201em;height:1.089em;vertical-align:-0.346em">, <img class="eq" src="assets/eq/8f654c1a3c4f.svg" alt="I_{zz}" style="width:1.431em;height:0.953em;vertical-align:-0.210em"></td>
+<td>0.0115, 0.0226 kg·m²</td>
+<td>point-mass estimate</td>
+</tr>
+<tr>
+<td>lift constant</td>
+<td><img class="eq" src="assets/eq/51e1cd58b4b3.svg" alt="k" style="width:0.672em;height:0.814em;vertical-align:-0.060em"></td>
+<td>8.5·10⁻⁶ N·s²</td>
+<td>10×4.5″ propeller, ~8.5 N at 1000 rad/s</td>
+</tr>
+<tr>
+<td>drag constant</td>
+<td><img class="eq" src="assets/eq/5a075f7a1f43.svg" alt="b" style="width:0.549em;height:0.814em;vertical-align:-0.060em"></td>
+<td>1.4·10⁻⁷ N·m·s²</td>
+<td><img class="eq" src="assets/eq/652caf7ebdac.svg" alt="b/k \approx 0.016" style="width:5.212em;height:1.120em;vertical-align:-0.310em"> m</td>
+</tr>
+<tr>
+<td>motor time constant</td>
+<td><img class="eq" src="assets/eq/a1de6ae8ad3b.svg" alt="\tau_m" style="width:1.317em;height:0.701em;vertical-align:-0.210em"></td>
+<td>40 ms</td>
+<td>typical 920–1000 KV + 30 A ESC</td>
+</tr>
+</tbody>
+</table></div>
+<p>At hover <img class="eq" src="assets/eq/c4bb0a4224ad.svg" alt="\ddot{\boldsymbol\xi}=0" style="width:2.492em;height:1.246em;vertical-align:-0.254em"> and <img class="eq" src="assets/eq/ba3ab1135db5.svg" alt="\phi=\theta=0" style="width:4.380em;height:1.009em;vertical-align:-0.254em">:</p>
+<div class="display-eq"><img class="eq" src="assets/eq/2f1dd67b4ad4.svg" alt="4k\omega_h^2 = mg\ \Rightarrow\ \omega_h=\sqrt{\frac{mg}{4k}} = 588\ \text{rad/s}\ (5\,620\ \text{rpm}),\qquad
+f_h = 2.94\ \text{N per rotor},\qquad u_h \approx 1588\ \mu\text{s}" style="width:43.368em;height:2.560em"></div>
+<blockquote>
+<p>These parameters are <strong>estimates</strong> for an F450-class frame. Measure <img class="eq" src="assets/eq/04ee41167eac.svg" alt="m" style="width:0.998em;height:0.551em;vertical-align:-0.060em">, weigh the thrust on a
+scale, and do a bifilar-pendulum test for <img class="eq" src="assets/eq/e95267a3d7c9.svg" alt="I" style="width:0.638em;height:0.803em;vertical-align:-0.060em"> to calibrate the model to the real aircraft.</p>
+</blockquote>
+<h2>6. Linearisation about hover</h2>
+<p>For small angles (<img class="eq" src="assets/eq/d7b5f0e584c7.svg" alt="S_x\approx x" style="width:3.142em;height:0.953em;vertical-align:-0.210em">, <img class="eq" src="assets/eq/588c41128b26.svg" alt="C_x\approx1" style="width:3.172em;height:0.953em;vertical-align:-0.210em">, <img class="eq" src="assets/eq/90612b1ced23.svg" alt="\psi=0" style="width:2.641em;height:1.009em;vertical-align:-0.254em">) and <img class="eq" src="assets/eq/dc5ff525f83b.svg" alt="T\approx mg" style="width:3.567em;height:0.998em;vertical-align:-0.254em">:</p>
+<div class="display-eq"><img class="eq" src="assets/eq/f5312537573f.svg" alt="\ddot x \approx g\,\theta,\qquad \ddot y \approx -g\,\phi,\qquad \ddot z \approx \frac{\Delta T}{m},\qquad
+\ddot\phi \approx \frac{\tau_\phi}{I_{xx}},\quad \ddot\theta\approx\frac{\tau_\theta}{I_{yy}},\quad \ddot\psi\approx\frac{\tau_\psi}{I_{zz}}" style="width:31.534em;height:2.452em"></div>
+<p>Assume a first-order motor, <img class="eq" src="assets/eq/c55070007637.svg" alt="\omega = \omega_{max}\,(u-1000)/1000" style="width:11.620em;height:1.120em;vertical-align:-0.310em">, and linearise <img class="eq" src="assets/eq/3c2d20023166.svg" alt="f=k\omega^2" style="width:3.710em;height:1.128em;vertical-align:-0.254em"> at <img class="eq" src="assets/eq/d05eafdead39.svg" alt="\omega_h" style="width:1.261em;height:0.701em;vertical-align:-0.210em">:</p>
+<div class="display-eq"><img class="eq" src="assets/eq/85eaca59cf79.svg" alt="\frac{\partial f}{\partial u} = 2k\omega_h\frac{\omega_{max}}{1000\,\mu\text{s}} = 0.0100\ \tfrac{\text{N}}{\mu\text{s}},\qquad
+\frac{\partial\tau_\phi}{\partial u_{roll}} = 4a\,\frac{\partial f}{\partial u} = 6.37\cdot10^{-3}\ \tfrac{\text{N·m}}{\mu\text{s}}" style="width:31.062em;height:2.371em"></div>
+<p>The roll-rate plant (input: PID output in µs, output: rate in °/s) is then</p>
+<div class="display-eq"><img class="eq" src="assets/eq/fefa6bd8d072.svg" alt="G_\omega(s)=\frac{\Omega_\phi(s)}{U(s)}=\frac{K}{s\,(\tau_m s+1)},\qquad
+K=\frac{180}{\pi}\cdot\frac{4a\,\partial f/\partial u}{I_{xx}} = 31.7\ \frac{^\circ/\text{s}^2}{\mu\text{s}}" style="width:30.105em;height:2.546em"></div>
+<p>and the roll angle is <img class="eq" src="assets/eq/87eaf81b7386.svg" alt="\Phi(s)=\Omega_\phi(s)/s" style="width:6.890em;height:1.156em;vertical-align:-0.346em">.</p>
+<h2>7. Controller implemented in the firmware</h2>
+<h3>7.1 Inner loop: discrete PID on the angular rate (250 Hz, <img class="eq" src="assets/eq/2374b83a5e79.svg" alt="T_s = 4" style="width:2.965em;height:0.953em;vertical-align:-0.210em"> ms)</h3>
+<div class="display-eq"><img class="eq" src="assets/eq/52b984e986d1.svg" alt="u_k = K_p\,e_k + K_i\sum_{j\le k} e_j + K_d\,(e_k-e_{k-1}),\qquad |u_k|\le 400\ \mu\text{s}" style="width:25.894em;height:2.609em"></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>axis</th>
+<th><img class="eq" src="assets/eq/d91017658719.svg" alt="K_p" style="width:1.432em;height:1.089em;vertical-align:-0.346em"></th>
+<th><img class="eq" src="assets/eq/d2265d8f16d6.svg" alt="K_i" style="width:1.302em;height:0.953em;vertical-align:-0.210em"></th>
+<th><img class="eq" src="assets/eq/e01442f6f9ce.svg" alt="K_d" style="width:1.436em;height:0.953em;vertical-align:-0.210em"></th>
+<th>continuous equivalent <img class="eq" src="assets/eq/4002a1bbae8f.svg" alt="K_i/T_s" style="width:2.814em;height:1.120em;vertical-align:-0.310em"></th>
+<th><img class="eq" src="assets/eq/09c77093259d.svg" alt="K_d\,T_s" style="width:2.614em;height:0.953em;vertical-align:-0.210em"></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>roll, pitch</td>
+<td>1.3</td>
+<td>0.04</td>
+<td>18</td>
+<td>10 s⁻¹</td>
+<td>0.072 s</td>
+</tr>
+<tr>
+<td>yaw</td>
+<td>4.0</td>
+<td>0.02</td>
+<td>0</td>
+<td>5 s⁻¹</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div>
+<p>Anti-windup clamps the integrator so its contribution stays within <img class="eq" src="assets/eq/29aca6654157.svg" alt="\pm400" style="width:2.398em;height:0.848em;vertical-align:-0.143em"> µs: <img class="eq" src="assets/eq/edfb7ec6d809.svg" alt="\left|\sum e\right| \le 400/K_i" style="width:6.879em;height:1.120em;vertical-align:-0.310em">.</p>
+<h3>7.2 Outer loop: self-levelling (angle mode)</h3>
+<div class="display-eq"><img class="eq" src="assets/eq/559eca0536bb.svg" alt="\omega^{*} = \frac{u_{stick} - 1500 \mp 8 - 15\,\hat\varphi}{3}
+\quad\Rightarrow\quad K_{angle}=\frac{15}{3}=5\ \text{s}^{-1},\qquad
+\varphi_{max}=\frac{2000-1508}{15}=32.8^\circ" style="width:40.938em;height:2.177em"></div>
+<p>At steady state <img class="eq" src="assets/eq/acefe36a1ed2.svg" alt="\omega^*=0" style="width:3.071em;height:0.809em;vertical-align:-0.060em">, so the attitude settles at <img class="eq" src="assets/eq/5c8c87d06de1.svg" alt="\hat\varphi=(u_{stick}-1508)/15" style="width:9.992em;height:1.120em;vertical-align:-0.310em">.
+A 1600 µs roll stick commands 6.13°.</p>
+<p><strong><span aria-hidden="true">▲</span> correction (firmware bug):</strong> in the 2022 code, the pitch <strong>angle</strong> integrated <img class="eq" src="assets/eq/9dc2e3a311d4.svg" alt="-g_y" style="width:1.855em;height:0.989em;vertical-align:-0.346em"> while the
+pitch <strong>rate</strong> fed to the PID used <img class="eq" src="assets/eq/93040e2b75d5.svg" alt="+g_y" style="width:1.855em;height:0.989em;vertical-align:-0.346em">. With rate <img class="eq" src="assets/eq/acc8d3ef9f8f.svg" alt="=-\dot\varphi" style="width:2.607em;height:0.982em;vertical-align:-0.254em"> the outer loop gives
+<img class="eq" src="assets/eq/66d059336f43.svg" alt="\dot\varphi = +5\varphi" style="width:4.039em;height:0.982em;vertical-align:-0.254em">, an unstable pole at <img class="eq" src="assets/eq/681498bc1262.svg" alt="s=+5" style="width:3.200em;height:0.848em;vertical-align:-0.143em"> s⁻¹. The angle grows by a factor of e
+every 0.2 s. Simulated, the aircraft flips past 70° about 0.6 s after a small pitch command
+(<a href="assets/img/sim-pitch-sign-bug.png">figure</a>). The revised firmware applies explicit
+<code>GYRO_*_SIGN</code>/<code>ACC_*_SIGN</code> constants so that rate <img class="eq" src="assets/eq/a83e718460a9.svg" alt="=\dot\varphi" style="width:1.830em;height:0.982em;vertical-align:-0.254em"> on every axis.</p>
+<h3>7.3 Stability margins (roll-rate loop, linearised)</h3>
+<p>The open loop is
+<img class="eq" src="assets/eq/3d8238bfe0e5.svg" alt="L(j\omega)=C(e^{j\omega T})\,F(e^{j\omega T})\,G_\omega(j\omega)\,\frac{1-e^{-j\omega T}}{j\omega T}\,e^{-j\omega T}" style="width:21.235em;height:1.638em;vertical-align:-0.541em">.
+It includes the PID, the firmware rate low-pass <img class="eq" src="assets/eq/249d5066a8fe.svg" alt="F(z)=0.3/(1-0.7z^{-1})" style="width:10.660em;height:1.184em;vertical-align:-0.310em">, the zero-order hold and
+one sample of computation delay. Results from <code>quad_sim.py</code>:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>crossover frequency</th>
+<th>phase margin</th>
+<th>gain margin</th>
+<th>phase-crossover</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>7.4 Hz</td>
+<td><strong>52°</strong></td>
+<td><strong>10.6 dB</strong></td>
+<td>18.7 Hz</td>
+</tr>
+</tbody>
+</table></div>
+<p>The thesis gains therefore give a well-damped inner loop for the assumed airframe.
+In the nonlinear simulation a 1500→1600 µs roll step has a 10–90 % rise time of 0.86 s and &lt;1 % overshoot.</p>
+<h2>8. Attitude estimation</h2>
+<h3>8.1 Sensors</h3>
+<ul>
+<li>gyroscope ±500 °/s → <img class="eq" src="assets/eq/189f5769b2af.svg" alt="S_g = 65.5" style="width:4.310em;height:1.089em;vertical-align:-0.346em"> LSB/(°/s); accelerometer ±8 g → <img class="eq" src="assets/eq/e7a8b0083717.svg" alt="S_a = 4096" style="width:4.550em;height:0.953em;vertical-align:-0.210em"> LSB/g
+  (<strong><span aria-hidden="true">▲</span> correction:</strong> the comment on <code>ACCEL_CONFIG = 0x10</code> said "±500 °/s").</li>
+<li>accelerometer tilt: <img class="eq" src="assets/eq/23f7563a87f1.svg" alt="\varphi_{acc}=\arcsin\left(a_y/\lVert\mathbf a\rVert\right)" style="width:9.883em;height:1.156em;vertical-align:-0.346em">, <img class="eq" src="assets/eq/414e8dfa5f71.svg" alt="\theta_{acc}=\arcsin\left(a_x/\lVert\mathbf a\rVert\right)" style="width:9.721em;height:1.120em;vertical-align:-0.310em">.</li>
+</ul>
+<h3>8.2 Complementary filter</h3>
+<div class="display-eq"><img class="eq" src="assets/eq/33a87aa5a8af.svg" alt="\hat\varphi_k=\alpha\left(\hat\varphi_{k-1}+\frac{g_k}{S_g}T_s\right)+(1-\alpha)\,\varphi_{acc,k},\qquad \alpha=0.9996" style="width:24.867em;height:2.542em"></div>
+<p>In the continuous domain this is a high-pass on the integrated gyro plus a low-pass on the accelerometer:</p>
+<div class="display-eq"><img class="eq" src="assets/eq/72f99a55a9ff.svg" alt="\hat\Phi(s)=\frac{\tau s}{\tau s+1}\cdot\frac{\Omega(s)}{s}+\frac{1}{\tau s+1}\,\Phi_{acc}(s),\qquad
+\tau = -\frac{T_s}{\ln\alpha}\approx\frac{\alpha T_s}{1-\alpha}=10.0\ \text{s}" style="width:31.639em;height:2.316em"></div>
+<p>A residual gyro bias <img class="eq" src="assets/eq/07ba8ec82daa.svg" alt="\beta" style="width:0.738em;height:1.009em;vertical-align:-0.254em"> gives a steady-state error <img class="eq" src="assets/eq/2622ff98a503.svg" alt="e_{ss}=\beta\,\tau" style="width:4.059em;height:1.009em;vertical-align:-0.254em">, so 0.05 °/s produces 0.5°.
+On a multirotor the measured specific force stays almost aligned with the body <img class="eq" src="assets/eq/9234690c63a2.svg" alt="z" style="width:0.629em;height:0.551em;vertical-align:-0.060em"> axis in
+steady flight. The accelerometer therefore observes tilt only weakly, which is why <img class="eq" src="assets/eq/00c2755db640.svg" alt="\tau" style="width:0.670em;height:0.551em;vertical-align:-0.060em"> must be
+long. It is also why the revised firmware initialises the angle from the <strong>average</strong> of the
+2000 calibration samples instead of one noisy sample.</p>
+<h3>8.3 First-order IIR filters in the firmware</h3>
+<p><img class="eq" src="assets/eq/0eb013462714.svg" alt="y_k = a\,y_{k-1}+(1-a)\,x_k" style="width:10.618em;height:1.120em;vertical-align:-0.310em"> has time constant <img class="eq" src="assets/eq/b6a89f1fd979.svg" alt="\tau=-T_s/\ln a" style="width:5.989em;height:1.120em;vertical-align:-0.310em"> and cut-off <img class="eq" src="assets/eq/d035e8d39cfd.svg" alt="f_c=-\ln a/(2\pi T_s)" style="width:8.219em;height:1.120em;vertical-align:-0.310em">:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>filter</th>
+<th><img class="eq" src="assets/eq/b041dfe99901.svg" alt="a" style="width:0.649em;height:0.551em;vertical-align:-0.060em"></th>
+<th><img class="eq" src="assets/eq/00c2755db640.svg" alt="\tau" style="width:0.670em;height:0.551em;vertical-align:-0.060em"></th>
+<th><img class="eq" src="assets/eq/8fa3d5b46138.svg" alt="f_c" style="width:1.017em;height:1.009em;vertical-align:-0.254em"></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>angle smoothing</td>
+<td>0.9</td>
+<td>38 ms</td>
+<td>4.2 Hz</td>
+</tr>
+<tr>
+<td>rate smoothing</td>
+<td>0.7</td>
+<td>11 ms</td>
+<td>14.2 Hz</td>
+</tr>
+<tr>
+<td>battery voltage</td>
+<td>0.92</td>
+<td>48 ms</td>
+<td>3.3 Hz</td>
+</tr>
+</tbody>
+</table></div>
+<h2>9. Timing and signals</h2>
+<ul>
+<li><strong>I²C clock</strong> (prescaler 1): <img class="eq" src="assets/eq/167222028d03.svg" alt="f_{SCL}=\dfrac{f_{CPU}}{16+2\,\mathrm{TWBR}}=\dfrac{16\ \text{MHz}}{40}=400" style="width:17.868em;height:2.260em;vertical-align:-0.829em"> kHz.</li>
+<li><strong>Geiger gate (Timer1, CTC):</strong> <img class="eq" src="assets/eq/95e3f5032d56.svg" alt="f=\dfrac{f_{CPU}}{N\,(1+\mathrm{OCR1A})}=\dfrac{16\cdot10^6}{256\cdot62\,500}=1.000" style="width:19.429em;height:2.546em;vertical-align:-0.996em"> Hz.
+  <strong><span aria-hidden="true">▲</span> correction:</strong> the 2022 overflow pre-load of 31 250 gives <img class="eq" src="assets/eq/081bd1c2b9b3.svg" alt="(65\,536-31\,250)\cdot16\ \mu\text{s}=0.549" style="width:14.117em;height:1.120em;vertical-align:-0.310em"> s, not 1 s.</li>
+<li><strong>RPi pulse mapping:</strong> stick <img class="eq" src="assets/eq/d76f2172c9c0.svg" alt="v\in[0,100]" style="width:4.863em;height:1.120em;vertical-align:-0.310em"> → pulse <img class="eq" src="assets/eq/567ce67a9722.svg" alt="=1000+10v" style="width:5.918em;height:0.848em;vertical-align:-0.143em"> µs. At 50 Hz the duty cycle is
+  <img class="eq" src="assets/eq/f004c10f22cf.svg" alt="D=\text{pulse}/20\ \text{ms}=(5v+500)/100\ \%" style="width:16.619em;height:1.120em;vertical-align:-0.310em">, which is exactly the <code>ChangeDutyCycle</code> formula of the thesis.</li>
+<li><strong>ESC refresh:</strong> 250 Hz, pulse 1100–2000 µs when armed, 1000 µs when disarmed.</li>
+<li><strong>Battery compensation:</strong> <img class="eq" src="assets/eq/dba95f08eaa2.svg" alt="u&#x27; = u\left(1+\dfrac{12.40\ \text{V}-V_{bat}}{35\ \text{V}}\right)" style="width:12.784em;height:2.520em;vertical-align:-1.010em">.</li>
+</ul>
+<h2>10. Sensor models</h2>
+<h3>10.1 MQ-2 (SnO₂ chemiresistor)</h3>
+<div class="display-eq"><img class="eq" src="assets/eq/adc097eaeb1a.svg" alt="V_{out}=V_C\frac{R_L}{R_S+R_L}\ \Rightarrow\ R_S=R_L\frac{V_C-V_{out}}{V_{out}},\qquad
+R_0=\frac{R_S^{\,\text{clean air}}}{9.83},\qquad
+c=10^{\frac{\log_{10}(R_S/R_0)-y_0}{m}+x_0}\ \text{ppm}" style="width:43.596em;height:2.481em"></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>gas</th>
+<th><img class="eq" src="assets/eq/34bc3b96825e.svg" alt="x_0" style="width:1.140em;height:0.701em;vertical-align:-0.210em"></th>
+<th><img class="eq" src="assets/eq/3d18df4d414b.svg" alt="y_0" style="width:1.059em;height:0.745em;vertical-align:-0.254em"></th>
+<th><img class="eq" src="assets/eq/04ee41167eac.svg" alt="m" style="width:0.998em;height:0.551em;vertical-align:-0.060em"></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LPG</td>
+<td>2.30</td>
+<td>0.21</td>
+<td>−0.47</td>
+</tr>
+<tr>
+<td>CO</td>
+<td>2.30</td>
+<td>0.72</td>
+<td>−0.34</td>
+</tr>
+<tr>
+<td>smoke</td>
+<td>2.30</td>
+<td>0.53</td>
+<td>−0.44</td>
+</tr>
+</tbody>
+</table></div>
+<p>These fits come from the datasheet's log-log curves and are only approximate (±30 %).
+The sensor also responds to humidity and temperature. It indicates trends and is <strong>not</strong> a calibrated gas analyser.</p>
+<h3>10.2 Geiger–Müller counter</h3>
+<p>Counts in a window <img class="eq" src="assets/eq/d7acc4a63bfa.svg" alt="t" style="width:0.481em;height:0.735em;vertical-align:-0.060em"> are Poisson distributed: <img class="eq" src="assets/eq/f124eff6a02c.svg" alt="P(N)=\dfrac{\lambda^N e^{-\lambda}}{N!}" style="width:7.121em;height:2.331em;vertical-align:-0.746em">, with
+<img class="eq" src="assets/eq/98d642d1cd27.svg" alt="\sigma_N=\sqrt N" style="width:4.529em;height:1.197em;vertical-align:-0.210em"> and relative uncertainty <img class="eq" src="assets/eq/294528ed021b.svg" alt="1/\sqrt N" style="width:2.866em;height:1.297em;vertical-align:-0.310em">.</p>
+<ul>
+<li>dead-time (non-paralysable) correction: <img class="eq" src="assets/eq/f8a719e7e6bc.svg" alt="n_{true}=\dfrac{n}{1-n\tau_d}" style="width:7.117em;height:2.063em;vertical-align:-0.896em">, with $\tau_d \approx 190\ \mu$s for the SBM-20;</li>
+<li>dose-rate estimate: <img class="eq" src="assets/eq/a7496ae5174d.svg" alt="\dot H\ [\mu\text{Sv/h}] = \text{CPM}\cdot CF" style="width:10.606em;height:1.291em;vertical-align:-0.310em">, with <img class="eq" src="assets/eq/8be3c61e0bfc.svg" alt="CF\approx0.0057" style="width:5.799em;height:0.803em;vertical-align:-0.060em"> for the SBM-20 (Cs-137) and <img class="eq" src="assets/eq/2de5e245759d.svg" alt="\approx0.0081" style="width:3.953em;height:0.764em;vertical-align:-0.060em"> for the J305;</li>
+<li>the firmware sums 60 one-second gates. At a natural background of ~20 CPM that gives
+  <img class="eq" src="assets/eq/fcb930c040d9.svg" alt="\sigma/N = 1/\sqrt{20}=22\ \%" style="width:9.751em;height:1.277em;vertical-align:-0.310em">, so a reading of $0.11\pm0.03\ \mu$Sv/h.</li>
+</ul>
+<h2>11. Fail-safe descent</h2>
+<p>With no altitude measurement, the fail-safe can only ramp the throttle down open-loop.
+Simulated from 30 m (linear drag model):</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>strategy</th>
+<th>time to ground</th>
+<th>impact speed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ramp 250 µs/s (1 µs per loop)</td>
+<td>3.5 s</td>
+<td>19.8 m/s</td>
+</tr>
+<tr>
+<td>ramp 25 µs/s (new default)</td>
+<td>6.9 s</td>
+<td>11.4 m/s</td>
+</tr>
+<tr>
+<td><em>proposed:</em> barometer + vertical-speed PI loop, −1 m/s</td>
+<td>30 s</td>
+<td><strong>1.2 m/s</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p>Conclusion: a barometric altimeter (e.g. BMP280 on the same I²C bus) is the most valuable
+hardware addition for safe operation beyond visual line of sight.</p>
+<hr />
+<p><em>References:</em> T. Luukkonen, <em>Modelling and control of quadcopter</em>, Aalto Univ., 2011 ·
+InvenSense MPU-6000/6050 Product Specification rev. 3.4 · Hanwei MQ-2 datasheet ·
+Microchip ATmega328P datasheet · R. Beard &amp; T. McLain, <em>Small Unmanned Aircraft</em>, Princeton UP, 2012 ·
+G. F. Knoll, <em>Radiation Detection and Measurement</em>, 4th ed., Wiley, 2010.</p></div>
+</main>
+<footer><div class="foot">
+<div>© 2022–2026 Cristian-Mihail Chirea. Code: MIT licence · Text and figures: CC BY 4.0.</div>
+<nav aria-label="Legal">
+<a href="legal.html">Legal notice</a>
+<a href="privacy.html">Privacy</a>
+<a href="terms.html">Terms of use</a>
+<a href="legal.html#licences">Licences</a>
+<button class="theme-toggle" type="button" id="theme">Toggle dark mode</button>
+</nav>
+</div></footer>
+<script>
+(function(){var b=document.getElementById('theme');if(!b)return;b.addEventListener('click',function(){
+var r=document.documentElement,cur=r.getAttribute('data-theme');
+var dark=cur?cur==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;
+var n=dark?'light':'dark';r.setAttribute('data-theme',n);try{localStorage.setItem('theme',n);}catch(e){}});})();
+</script>
+</body>
+</html>

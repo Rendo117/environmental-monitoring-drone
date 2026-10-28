@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Software — Environmental Monitoring Drone</title>
+<meta name="description" content="Flight-controller firmware for the ATmega328P, the Raspberry Pi bridge, the Java ground station and the Firebase security rules of the environmental monitoring drone.">
+<meta name="author" content="Cristian-Mihail Chirea">
+<link rel="canonical" href="https://rendo117.github.io/environmental-monitoring-drone/software.html">
+<meta property="og:title" content="Software — Environmental Monitoring Drone">
+<meta property="og:description" content="Flight-controller firmware for the ATmega328P, the Raspberry Pi bridge, the Java ground station and the Firebase security rules of the environmental monitoring drone.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://rendo117.github.io/environmental-monitoring-drone/assets/img/drone-photo.jpg">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar"><div class="bar-inner">
+<a class="home" href="./">Environmental Monitoring Drone</a>
+<nav aria-label="Sections">
+<a href="./">Overview</a>
+<a href="math.html">Mathematics</a>
+<a href="hardware.html">Hardware</a>
+<a href="software.html" aria-current="page">Software</a>
+<a href="simulation.html">Simulation</a>
+<a href="errata.html">Errata</a>
+<a class="gh" href="https://github.com/Rendo117/environmental-monitoring-drone">GitHub</a>
+</nav>
+</div></header>
+<main id="main">
+<div class="col">
+<h1>Software</h1>
+<p class="lede">The software has three parts in three languages. Each runs where its timing requirements are met: C++ on the microcontroller for the 4 ms control loop, Python on the Raspberry Pi for networking and unit conversion, and Java on the operator's computer for the user interface.</p>
+</div>
+
+<div class="table-wrap"><table>
+<thead><tr><th>Component</th><th>Runs on</th><th>Job</th><th>Source</th></tr></thead>
+<tbody>
+<tr><td>Flight controller</td><td>ATmega328P (Arduino Uno)</td><td>attitude estimation, cascaded PID, motor mixing, arming, fail-safe, payload acquisition</td><td><a href="https://github.com/Rendo117/environmental-monitoring-drone/tree/main/firmware/flight_controller"><code>firmware/</code></a></td></tr>
+<tr><td>Bridge</td><td>Raspberry Pi 4</td><td>Firebase ↔ servo pulses, telemetry parsing, ppm and µSv/h conversion, link watchdog</td><td><a href="https://github.com/Rendo117/environmental-monitoring-drone/tree/main/raspberry-pi"><code>raspberry-pi/</code></a></td></tr>
+<tr><td>Ground station</td><td>any PC with Java 11+</td><td>login, stick commands, keyboard control, live telemetry, CSV recording</td><td><a href="https://github.com/Rendo117/environmental-monitoring-drone/tree/main/ground-station"><code>ground-station/</code></a></td></tr>
+<tr><td>Database rules</td><td>Firebase</td><td>who may command, who may report, value validation</td><td><a href="https://github.com/Rendo117/environmental-monitoring-drone/tree/main/firebase"><code>firebase/</code></a></td></tr>
+<tr><td>Simulation</td><td>any PC with Python 3</td><td>6-DOF model running the exact firmware control law</td><td><a href="https://github.com/Rendo117/environmental-monitoring-drone/tree/main/simulation"><code>simulation/</code></a></td></tr>
+</tbody></table></div>
+
+<h2 class="col">Flight controller</h2>
+<div class="col">
+<p>Every 4 ms the loop runs through the same steps:</p>
+<ol>
+<li>read the four command pulses captured by the pin-change interrupt;</li>
+<li>read 14 bytes from the MPU-6050;</li>
+<li>update the complementary filter;</li>
+<li>run the arming state machine;</li>
+<li>compute the rate set-points;</li>
+<li>run the PID;</li>
+<li>mix the outputs to four motors;</li>
+<li>compensate for battery sag;</li>
+<li>generate the four ESC pulses.</li>
+</ol>
+<p>Every 25th loop it also reads the gas sensor and sends a telemetry frame.</p>
+</div>
+<figure>
+  <div class="frame"><a href="assets/img/control.svg"><img src="assets/img/control.svg" alt="Control block diagram: stick input through a dead-band and division by three to a rate set-point; the rate error feeds a PID, the mixer, ESCs and motors, and the rigid-body dynamics; the gyro rate feeds back to the inner loop, and the angle from the complementary filter, multiplied by 15, feeds back to the outer loop." width="1500" height="420"></a></div>
+  <figcaption><b>Figure 9.</b> Cascaded control. The inner loop holds the angular rate. The outer loop turns an angle error into a rate demand with gain 15/3 = 5 s⁻¹, which makes the aircraft level itself when the sticks are centred.</figcaption>
+</figure>
+<figure class="narrow">
+  <div class="frame"><a href="assets/img/states.svg"><img src="assets/img/states.svg" alt="State machine with STOPPED, STARTING, STARTED and FAIL-SAFE states and the stick conditions for each transition." width="1000" height="470" loading="lazy"></a></div>
+  <figcaption><b>Figure 10.</b> Arming and fail-safe. In 2022 this state machine was written but never called, so the motors would spin as soon as the board powered up.</figcaption>
+</figure>
+
+<div class="col">
+<h3>Build and test without hardware</h3>
+<pre><code># Arduino IDE: open firmware/flight_controller/flight_controller.ino, board "Arduino Uno", upload.
+# Host-side logic test with a mocked Arduino API:
+cd firmware/host_test
+g++ -std=gnu++17 -I. -x c++ main.cpp -o fc_test &amp;&amp; ./fc_test</code></pre>
+
+<h2>Raspberry Pi bridge</h2>
+<p><code>bridge.py</code> signs in to Firebase with its own account. It polls the command node ten times a second and turns each stick value <i>v</i> ∈ [0, 100] into a pulse of 1000 + 10<i>v</i> µs with the DMA-timed <code>pigpio</code> library. It also parses the flight controller's frames, verifies the checksum, converts gas and radiation readings to physical units and writes them back. If no new command arrives for one second, it stops the pulses, and the flight controller treats that as a lost link.</p>
+<pre><code>sudo apt install pigpio python3-pigpio python3-serial python3-requests
+sudo systemctl enable --now pigpiod
+cd raspberry-pi &amp;&amp; cp config.example.ini config.ini   # fill in Firebase details
+python3 bridge.py --simulate      # try it without any hardware
+python3 test_sensors.py           # unit tests of the conversions</code></pre>
+
+<h2>Ground station</h2>
+<p>A single Java application with no third-party dependencies. It authenticates with Firebase, sends stick commands as a 5 Hz keep-alive, and shows the telemetry with its uncertainty. It can record everything to CSV. An offline demo mode simulates the drone, so the interface can be tried without an account.</p>
+<pre><code>cd ground-station
+./build.sh              # or build.bat on Windows
+java -jar build/ground-station.jar</code></pre>
+</div>
+<div class="pair">
+  <figure>
+    <div class="frame"><a href="assets/img/gui-control.png"><img src="assets/img/gui-control.png" alt="Ground station control tab with spinners for roll, pitch, yaw and throttle and buttons for Send, ARM, DISARM and MOTOR STOP." width="900" height="620" loading="lazy"></a></div>
+    <figcaption><b>Figure 11.</b> Control tab. The keyboard works anywhere in the window: W/S pitch, A/D yaw, the arrow keys roll and throttle, Space centres the sticks and Esc stops the motors.</figcaption>
+  </figure>
+  <figure>
+    <div class="frame"><a href="assets/img/gui-telemetry.png"><img src="assets/img/gui-telemetry.png" alt="Ground station telemetry tab with state, attitude, battery, radiation in counts per minute and microsieverts per hour with uncertainty, gas concentrations, and two live charts." width="900" height="620" loading="lazy"></a></div>
+    <figcaption><b>Figure 12.</b> Telemetry tab (offline demo). The dose rate is shown with its Poisson 1σ uncertainty.</figcaption>
+  </figure>
+</div>
+
+<div class="col">
+<h2>Firebase</h2>
+<p>The 2022 database could be read and written by anyone who knew its address. The new <a href="https://github.com/Rendo117/environmental-monitoring-drone/blob/main/firebase/database.rules.json">security rules</a> require a signed-in account. Only operators may write commands, and only the aircraft may write telemetry. Each stick value must be a number from 0 to 100. Set-up takes about ten minutes on the free plan, as described in <a href="https://github.com/Rendo117/environmental-monitoring-drone/blob/main/firebase/README.md"><code>firebase/README.md</code></a>.</p>
+<pre><code>/drones/drone1/command          {roll, pitch, yaw, throttle, seq, mode, sentAt}
+/drones/drone1/telemetry/latest {status, roll_deg, …, gas_lpg_ppm, radiation_usv_h, …}
+/drones/drone1/telemetry/history/&lt;id&gt;   (1 Hz log)</code></pre>
+</div>
+
+</main>
+<footer><div class="foot">
+<div>© 2022–2026 Cristian-Mihail Chirea. Code: MIT licence · Text and figures: CC BY 4.0.</div>
+<nav aria-label="Legal">
+<a href="legal.html">Legal notice</a>
+<a href="privacy.html">Privacy</a>
+<a href="terms.html">Terms of use</a>
+<a href="legal.html#licences">Licences</a>
+<button class="theme-toggle" type="button" id="theme">Toggle dark mode</button>
+</nav>
+</div></footer>
+<script>
+(function(){var b=document.getElementById('theme');if(!b)return;b.addEventListener('click',function(){
+var r=document.documentElement,cur=r.getAttribute('data-theme');
+var dark=cur?cur==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;
+var n=dark?'light':'dark';r.setAttribute('data-theme',n);try{localStorage.setItem('theme',n);}catch(e){}});})();
+</script>
+</body>
+</html>

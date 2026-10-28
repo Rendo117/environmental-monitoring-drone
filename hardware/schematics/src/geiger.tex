@@ -1,0 +1,96 @@
+\documentclass[border=10pt]{standalone}
+\input{common.tex}
+\begin{document}
+\begin{circuitikz}[scale=1.0, transform shape]
+\ctikzset{resistors/scale=0.8, capacitors/scale=0.8, diodes/scale=0.8}
+% ---------- 555 astable ----------
+\node[draw, minimum width=2.4cm, minimum height=3.6cm, fill=fill1] (ic) at (0,0) {};
+\node[font=\bfseries] at (0,0.2) {U1};
+\node at (0,-0.3) {NE555};
+\node[font=\footnotesize, anchor=west] (p8) at (-1.2,1.4) {8 VCC};
+\node[font=\footnotesize, anchor=west] (p4) at (-1.2,0.9) {4 RST};
+\node[font=\footnotesize, anchor=west] (p7) at (-1.2,0.0) {7 DIS};
+\node[font=\footnotesize, anchor=west] (p6) at (-1.2,-0.7) {6 THR};
+\node[font=\footnotesize, anchor=west] (p2) at (-1.2,-1.3) {2 TRG};
+\node[font=\footnotesize, anchor=east] (p3) at (1.2,0.5) {OUT 3};
+\node[font=\footnotesize, anchor=east] (p5) at (1.2,-0.6) {CV 5};
+\node[font=\footnotesize, anchor=east] (p1) at (1.2,-1.4) {GND 1};
+% supply rail
+\draw (-6,3) node[left]{$+5\,$V} -- (5.6,3);
+\draw (-6,-3.5) node[left]{GND} -- (1.4,-3.5);
+% VCC / RST
+\draw (-1.2,1.4) -- (-1.6,1.4) -- (-1.6,3);
+\draw (-1.2,0.9) -- (-1.6,0.9) -- (-1.6,1.4);
+\fill (-1.6,1.4) circle (1.6pt); \fill (-1.6,3) circle (1.6pt);
+% R1 VCC-DIS, R2 DIS-THR/TRG, C1
+\draw (-3.2,3) to[R, l_=$R_1$\,4.7\,k$\Omega$] (-3.2,0) -- (-1.2,0);
+\fill (-3.2,3) circle (1.6pt);
+\draw (-3.2,0) to[R, l_=$R_2$\,12\,k$\Omega$] (-3.2,-1.0) -- (-2.0,-1.0);
+\fill (-3.2,0) circle (1.6pt);
+\draw (-1.2,-0.7) -- (-2.0,-0.7) -- (-2.0,-1.3) -- (-1.2,-1.3);
+\fill (-2.0,-1.0) circle (1.6pt);
+\draw (-3.2,-1.0) to[C, l_=$C_1$\,100\,nF] (-3.2,-3.5);
+\fill (-3.2,-1.0) circle (1.6pt); \fill (-3.2,-3.5) circle (1.6pt);
+% decoupling
+\draw (-4.8,3) to[C, l_=$C_d$\,100\,nF] (-4.8,-3.5);
+\fill (-4.8,3) circle (1.6pt); \fill (-4.8,-3.5) circle (1.6pt);
+% CV, GND
+\draw (1.2,-0.6) -- (1.8,-0.6) to[C, l=$C_2$\,10\,nF] (1.8,-3.5);
+\fill (1.8,-3.5) circle (1.6pt);
+\draw (1.2,-1.4) -- (1.4,-1.4) -- (1.4,-3.5);
+\fill (1.4,-3.5) circle (1.6pt);
+% ---------- MOSFET driver ----------
+\draw (1.2,0.5) to[R, l=$R_3$\,100\,$\Omega$] (4.5,0.5);
+\node[nigfete, anchor=G] (Q1) at (4.5,0.5) {};
+\node[right, font=\footnotesize, align=left] at ($(Q1.east)+(0.05,-0.25)$) {$Q_1$\\IRLZ44N};
+\draw (Q1.S) -- (Q1.S |- 0,-3.5);
+\fill (Q1.S |- 0,-3.5) circle (1.6pt);
+\draw (3.9,0.5) to[R, l=$R_4$\,10\,k$\Omega$, *-] (3.9,-3.5);
+\fill (3.9,-3.5) circle (1.6pt);
+% ---------- transformer (step-up) ----------
+\draw (Q1.D) |- (5.6,1.5) coordinate (pd);
+\draw (pd) to[L, l=prim.] (5.6,3);
+\fill (5.6,3) circle (1.6pt);
+\draw[double, double distance=2pt] (6.2,1.5) -- (6.2,3.0);
+\node[font=\footnotesize, align=center, anchor=south] at (6.0,3.15) {$T_1$ 6\,V\,:\,117\,V};
+\draw (6.8,1.5) to[L, l_=sec., mirror] (6.8,3) coordinate (s1);
+\draw (6.8,1.5) -- (6.8,-3.5); \fill (6.8,-3.5) circle (1.6pt);
+% ---------- HV doubler (Greinacher) ----------
+\draw[hv] (s1) to[C, l=$C_3$\,10\,nF\,/\,1\,kV, color=hv] (8.6,3) coordinate (n1);
+\draw[hv] (8.6,-1.0) to[D*, l_=$D_1$ UF4007, color=hv] (n1);
+\draw[hv] (8.6,-1.0) -- (8.6,-3.5);
+\fill[hv] (n1) circle (1.8pt);
+\draw[hv] (n1) to[D*, l=$D_2$ UF4007, color=hv] (10.8,3) coordinate (hvn);
+\draw[hv] (hvn) to[C, l_=$C_4$\,10\,nF\,/\,1\,kV, color=hv] (10.8,-3.5);
+\fill[hv] (hvn) circle (1.8pt);
+\node[hv, font=\bfseries\footnotesize, above] at (11.6,3) {HV $\approx$ 400\,V};
+\fill (8.6,-3.5) circle (1.6pt); \fill (10.8,-3.5) circle (1.6pt);
+% ---------- GM tube ----------
+\draw[hv] (hvn) -- (12.6,3) to[R, l_=$R_6$\,4.7\,M$\Omega$, color=hv] (12.6,1.2);
+\node[draw, rounded corners=5pt, minimum width=0.7cm, minimum height=1.6cm, fill=fill2] (gm) at (12.6,0.4) {};
+\node[font=\tiny] at (12.6,1.0) {A}; \node[font=\tiny] at (12.6,-0.2) {K};
+\node[font=\footnotesize, align=right, anchor=east] at (12.15,0.4) {GM tube\\SBM-20\,/\,J305};
+% ---------- pulse detector ----------
+\draw (12.6,-0.4) to[R, l_=$R_9$\,10\,k$\Omega$] (12.6,-1.9) -- (14.0,-1.9);
+\node[npn, anchor=B] (Q2) at (14.0,-1.9) {};
+\node[font=\footnotesize, right] at (Q2.E) {$Q_2$ 2N2222};
+\draw (Q2.E) -- (Q2.E |- 0,-3.5); \fill (Q2.E |- 0,-3.5) circle (1.6pt);
+\draw (13.3,-1.9) to[R, l=$R_7$\,680\,$\Omega$, *-] (13.3,-3.5); \fill (13.3,-3.5) circle (1.6pt);
+\draw (Q2.C) -- ++(0,0.4) coordinate (col);
+\draw (col) to[R, l_=$R_{10}$\,22\,k$\Omega$, -*] (Q2.C |- 0,3.0) node[above]{$+5\,$V};
+\draw (col) -- (16.0,0 |- col) node[right, align=left, font=\footnotesize] {to Arduino D12\\(PB4 / PCINT4)\\active-LOW pulse};
+\fill (col) circle (1.6pt);
+\draw (-6,-3.5) -- (15.0,-3.5);
+% ---------- notes ----------
+\node[draw=muted, rounded corners, fill=white, align=left, font=\scriptsize, anchor=north west, text width=9.2cm] at (-6,-4.1) {
+\textbf{Corrected Geiger--M\"uller front-end} (topology of the 2022 build, element14 ``homebrew Geiger counter'').\\
+Changes vs. thesis Fig.\,8: $D_1,D_2$ were labelled 2N2222 (a transistor) $\rightarrow$ UF4007 fast HV diodes;
+$Q_1$ IRF220 $\rightarrow$ logic-level IRLZ44N (fully on at $V_{GS}=5$\,V); gate resistor 100\,k$\Omega\rightarrow$100\,$\Omega$ with 10\,k$\Omega$ pull-down;
+``4.7m'' $\rightarrow$ 4.7\,M$\Omega$ anode resistor; $R_7$ 650\,$\Omega\rightarrow$ 680\,$\Omega$ (E12);
+output now taken from the \textbf{collector} of $Q_2$ (the 2022 drawing tapped the base node, $\approx$0.6\,V swing).\\
+555 astable: $f = \dfrac{1.44}{(R_1+2R_2)C_1} \approx 0.50$\,kHz, duty $=\dfrac{R_1+R_2}{R_1+2R_2}\approx 58\,\%$.
+Adjust $f$ / duty to reach the tube plateau voltage (SBM-20: 350--475\,V); measure with a $\geq$1\,G$\Omega$ divider.};
+\node[draw=hv, rounded corners, fill=fill2, align=left, font=\scriptsize\bfseries, anchor=north west, text width=5.6cm, text=hv] at (4.2,-4.1) {
+\textbf{DANGER} -- red nets carry several hundred volts. Capacitors stay charged after power-off. Rate $C_3$, $C_4$ $\geq$ 1\,kV.};
+\end{circuitikz}
+\end{document}

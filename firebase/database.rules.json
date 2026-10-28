@@ -1,0 +1,32 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "operators": {
+      ".read": false,
+      ".write": false
+    },
+    "drones": {
+      "$droneId": {
+        "command": {
+          ".read": "auth != null && (root.child('operators').child(auth.uid).val() === true || root.child('aircraft').child($droneId).child(auth.uid).val() === true)",
+          ".write": "auth != null && root.child('operators').child(auth.uid).val() === true",
+          ".validate": "newData.hasChildren(['roll','pitch','yaw','throttle','seq'])",
+          "roll":     { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100" },
+          "pitch":    { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100" },
+          "yaw":      { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100" },
+          "throttle": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100" },
+          "seq":      { ".validate": "newData.isNumber()" },
+          "mode":     { ".validate": "newData.isString() && newData.val().length < 16" },
+          "sentAt":   { ".validate": "newData.val() <= now" },
+          "$other":   { ".validate": false }
+        },
+        "telemetry": {
+          ".read": "auth != null && (root.child('operators').child(auth.uid).val() === true || root.child('aircraft').child($droneId).child(auth.uid).val() === true)",
+          ".write": "auth != null && root.child('aircraft').child($droneId).child(auth.uid).val() === true",
+          "history": { ".indexOn": ["time"] }
+        }
+      }
+    }
+  }
+}

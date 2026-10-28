@@ -1,0 +1,13 @@
+# secrets
+raspberry-pi/config.ini
+ground-station/config.properties
+# build outputs
+ground-station/build/
+firmware/host_test/fc_test
+__pycache__/
+*.pyc
+hardware/schematics/src/*.aux
+hardware/schematics/src/*.log
+hardware/schematics/src/*.pdf
+simulation/results/run.log
+.DS_Store

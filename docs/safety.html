@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Safety and regulations — Environmental Monitoring Drone</title>
+<meta name="description" content="Safety notes and EU/Romanian drone regulations relevant to the project.">
+<meta name="author" content="Cristian-Mihail Chirea">
+<link rel="canonical" href="https://rendo117.github.io/environmental-monitoring-drone/safety.html">
+<meta property="og:title" content="Safety and regulations — Environmental Monitoring Drone">
+<meta property="og:description" content="Safety notes and EU/Romanian drone regulations relevant to the project.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://rendo117.github.io/environmental-monitoring-drone/assets/img/drone-photo.jpg">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar"><div class="bar-inner">
+<a class="home" href="./">Environmental Monitoring Drone</a>
+<nav aria-label="Sections">
+<a href="./">Overview</a>
+<a href="math.html">Mathematics</a>
+<a href="hardware.html">Hardware</a>
+<a href="software.html">Software</a>
+<a href="simulation.html">Simulation</a>
+<a href="errata.html">Errata</a>
+<a class="gh" href="https://github.com/Rendo117/environmental-monitoring-drone">GitHub</a>
+</nav>
+</div></header>
+<main id="main">
+<div class="prose"><h1>Safety and regulations</h1>
+<p><em>This is general information, not legal advice. Rules change, so check with the authority before flying.</em></p>
+<h2>Aviation rules (EU / Romania)</h2>
+<ul>
+<li>Drone operations in the EU fall under <strong>Implementing Regulation (EU) 2019/947</strong> and <strong>Delegated
+  Regulation (EU) 2019/945</strong>. In Romania the competent authority is the <strong>Romanian Civil Aeronautical
+  Authority (AACR)</strong>. National provisions are in the Air Code (Law 21/2020).</li>
+<li>The aircraft weighs ~1.2 kg and has no class marking, so it is a <strong>privately built UAS</strong>. In the <em>open</em>
+  category it may fly only in subcategory <strong>A3</strong>: far from people and at least 150 m from residential,
+  commercial, industrial or recreational areas, below <strong>120 m</strong>, and in <strong>visual line of sight (VLOS)</strong>.</li>
+<li>The <strong>operator</strong> must register with AACR (drones &gt; 250 g) and display the operator ID on the
+  aircraft. The <strong>remote pilot</strong> needs the A1/A3 online training and test.</li>
+<li>Controlling the drone "from anywhere in the world over the internet" (the thesis concept) is a
+  <strong>beyond-visual-line-of-sight (BVLOS)</strong> operation. That is the <strong>specific</strong> category, which requires an AACR
+  operational authorisation based on a risk assessment (SORA) or a standard scenario.</li>
+<li>Check the geographical zones (restricted/prohibited areas, airports, military sites) before every flight.
+  Emergency sites are often under temporary flight restrictions, so coordinate with the incident commander.</li>
+</ul>
+<h2>Radio</h2>
+<p>The aircraft uses the Raspberry Pi's Wi-Fi or a 4G modem only (licence-free / operator networks).
+Do not add transmitters without checking ANCOM rules.</p>
+<h2>Hazards specific to this project</h2>
+<ul>
+<li><strong>High voltage:</strong> the Geiger board generates ~400 V. Capacitors stay charged after power-off.</li>
+<li><strong>LiPo batteries:</strong> fire risk. Charge in a LiPo bag, never unattended, and store at 3.8 V/cell.</li>
+<li><strong>Propellers:</strong> remove them for all bench work.</li>
+<li><strong>Radioactive check sources:</strong> use only exempt sources (e.g. a lantern mantle or a small calibration
+  source) and follow their handling instructions. Do not open sealed sources.</li>
+<li><strong>Measurement limits:</strong> the MQ-2 and the Geiger counter here are <strong>indicative, uncalibrated</strong> instruments.
+  Do not use their readings for life-safety decisions. Use certified instruments and qualified personnel.</li>
+</ul>
+<h2>Data protection</h2>
+<p>The aircraft records gas, radiation, attitude and battery data, with <strong>no camera and no personal data</strong>.
+If you add a camera, GDPR applies to images of people.</p></div>
+</main>
+<footer><div class="foot">
+<div>© 2022–2026 Cristian-Mihail Chirea. Code: MIT licence · Text and figures: CC BY 4.0.</div>
+<nav aria-label="Legal">
+<a href="legal.html">Legal notice</a>
+<a href="privacy.html">Privacy</a>
+<a href="terms.html">Terms of use</a>
+<a href="legal.html#licences">Licences</a>
+<button class="theme-toggle" type="button" id="theme">Toggle dark mode</button>
+</nav>
+</div></footer>
+<script>
+(function(){var b=document.getElementById('theme');if(!b)return;b.addEventListener('click',function(){
+var r=document.documentElement,cur=r.getAttribute('data-theme');
+var dark=cur?cur==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;
+var n=dark?'light':'dark';r.setAttribute('data-theme',n);try{localStorage.setItem('theme',n);}catch(e){}});})();
+</script>
+</body>
+</html>

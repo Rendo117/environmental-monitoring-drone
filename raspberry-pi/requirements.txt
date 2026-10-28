@@ -1,0 +1,3 @@
+requests>=2.31
+pyserial>=3.5
+# pigpio is installed from apt on Raspberry Pi OS:  sudo apt install pigpio python3-pigpio

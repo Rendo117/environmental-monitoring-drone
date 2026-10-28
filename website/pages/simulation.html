@@ -1,0 +1,56 @@
+<!-- title: Simulation | description: Nonlinear 6-DOF simulation of the quadcopter running the exact firmware control law: step and disturbance responses, Bode stability margins, estimator behaviour, fail-safe descent and sensor statistics. | wide -->
+<div class="col">
+<h1>Simulation</h1>
+<p class="lede">The thesis tuned its PID gains by experiment. Here they are tested against a model. <a href="{REPO_URL}/blob/main/simulation/quad_sim.py"><code>quad_sim.py</code></a> integrates the Newton–Euler equations of the <a href="math.html">mathematical model</a> at 2 kHz. It runs a line-by-line Python copy of the firmware at 250 Hz, including the integer sensor readings, both low-pass filters and the motor limits.</p>
+<p>The airframe constants are estimates for an F450-class frame weighing 1.2 kg, so treat the numbers as indicative. A thrust-stand measurement and a bifilar-pendulum test of the real aircraft would replace them.</p>
+<pre><code>cd simulation
+python3 quad_sim.py    # writes the figures and results/summary.json</code></pre>
+</div>
+
+<h2 class="col">Response to a roll command</h2>
+<figure class="narrow">
+  <div class="frame"><img src="assets/img/sim-roll-step.png" alt="Roll angle rising from 0 to about 6 to 7 degrees after a stick step at 1 s and returning near zero after release at 3.5 s; ESC pulses spike briefly at each step." width="1100" height="860"></div>
+  <figcaption><b>Figure 13.</b> A 1500 → 1600 µs roll stick commands $(1600-1508)/15 = 6.13^\circ$. Rise time (10–90 %) is 0.86 s and overshoot is below 1 %. The last degree of error comes from the estimator. On a multirotor the accelerometer barely sees tilt, so gyro integration error decays only with the filter's 10 s time constant.</figcaption>
+</figure>
+
+<h2 class="col">Rejecting a gust</h2>
+<figure class="narrow">
+  <div class="frame"><img src="assets/img/sim-disturbance.png" alt="Roll angle peaking just under 2 degrees after a 50 ms torque pulse and returning within about 0.15 s." width="1100" height="520" loading="lazy"></div>
+  <figcaption><b>Figure 14.</b> A 0.4 N·m, 50 ms roll torque, roughly a strong gust on one arm, tilts the hovering aircraft by 1.9°. It is back within 1° after 0.14 s.</figcaption>
+</figure>
+
+<h2 class="col">Stability margins</h2>
+<figure class="narrow">
+  <div class="frame"><img src="assets/img/sim-bode.png" alt="Bode plot of the open roll-rate loop: magnitude crossing 0 dB at 7.4 Hz with 52 degrees phase margin; phase crossing minus 180 degrees at 18.7 Hz with 10.6 dB gain margin." width="1100" height="780" loading="lazy"></div>
+  <figcaption><b>Figure 15.</b> Open-loop frequency response of the roll-rate loop. It is linearised at hover and includes the zero-order hold, one sample of computation delay and the firmware's rate filter. A 52° phase margin and a 10.6 dB gain margin are comfortable values for a multirotor.</figcaption>
+</figure>
+
+<h2 class="col">The pitch sign error</h2>
+<figure class="narrow">
+  <div class="frame"><img src="assets/img/sim-pitch-sign-bug.png" alt="Two pitch responses to the same command: the corrected firmware settles near the target; the 2022 firmware diverges exponentially past 70 degrees within 0.65 s." width="1100" height="560" loading="lazy"></div>
+  <figcaption><b>Figure 16.</b> In 2022 the pitch angle was integrated from $-g_y$ while the PID used $+g_y$ as the pitch rate. The self-levelling loop then becomes $\dot\varphi = +5\varphi$, an exponential with a 0.2 s time constant. The roll axis did not have this error.</figcaption>
+</figure>
+
+<h2 class="col">Attitude estimation</h2>
+<figure class="narrow">
+  <div class="frame"><img src="assets/img/sim-complementary.png" alt="Comparison over 60 s: noisy accelerometer angle, drifting gyroscope-only angle and the complementary filter output following the true angle closely." width="1100" height="560" loading="lazy"></div>
+  <figcaption><b>Figure 17.</b> Integrating the gyro alone drifts (here 3° in a minute from a 0.05 °/s bias). The accelerometer alone is noisy (2° rms of vibration). The complementary filter keeps the best of both: 0.56° rms error. Its steady-state bias error is $\beta\tau = 0.05 \cdot 10 = 0.5^\circ$.</figcaption>
+</figure>
+
+<h2 class="col">Fail-safe descent</h2>
+<figure class="narrow">
+  <div class="frame"><img src="assets/img/sim-failsafe.png" alt="Altitude against time after link loss at 30 m: ramp at 250 microseconds per second hits the ground in 3.5 s, ramp at 25 microseconds per second in 6.9 s, barometric vertical-speed loop descends linearly in 30 s." width="1100" height="780" loading="lazy"></div>
+  <figcaption><b>Figure 18.</b> Without an altitude sensor the fail-safe can only lower the throttle open-loop. A fast ramp hits the ground at 20 m/s and the slower new default at 11 m/s. A barometer with a vertical-speed loop would land at 1.2 m/s, which makes it the single most useful hardware addition.</figcaption>
+</figure>
+
+<h2 class="col">Sensor statistics</h2>
+<div class="pair">
+  <figure>
+    <div class="frame"><img src="assets/img/sim-geiger-uncertainty.png" alt="Relative uncertainty against counting time for 20, 200 and 2000 counts per minute; at 60 s and 20 CPM it is 22 percent." width="1100" height="540" loading="lazy"></div>
+    <figcaption><b>Figure 19.</b> Radioactive decay is random, so a count $N$ carries an uncertainty of $\sqrt N$. At natural background the 60 s window gives ±22 %. Near a source the reading becomes precise within seconds.</figcaption>
+  </figure>
+  <figure>
+    <div class="frame"><img src="assets/img/sim-mq2-curves.png" alt="Log-log sensitivity curves of the MQ-2 for LPG, CO and smoke between 200 and 10000 ppm, with the clean-air ratio of 9.83 marked." width="900" height="640" loading="lazy"></div>
+    <figcaption><b>Figure 20.</b> MQ-2 sensitivity from the datasheet. The sensor responds to all three gases at once, so a reading is reported as LPG-, CO- or smoke-equivalent rather than as an identified gas.</figcaption>
+  </figure>
+</div>

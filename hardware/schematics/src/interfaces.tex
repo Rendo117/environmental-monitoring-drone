@@ -1,0 +1,48 @@
+\documentclass[border=12pt]{standalone}
+\input{common.tex}
+\begin{document}
+\begin{circuitikz}
+\ctikzset{resistors/scale=0.85, capacitors/scale=0.85, diodes/scale=0.85}
+% ---------------- (a) MQ-2 ----------------
+\node[font=\bfseries, anchor=west] at (-0.5,5.2) {(a) MQ-2 chemiresistor read-out};
+\draw (0,4.2) node[left]{$V_C = 5$\,V} -- (3,4.2);
+\draw (0.8,4.2) to[R, l_=$R_H\!\approx\!33\,\Omega$ (heater), *-] (0.8,0.4) node[ground]{};
+\draw (3,4.2) to[vR, l=$R_S$ (SnO$_2$)] (3,2.2) coordinate (ao);
+\draw (ao) to[R, l={$R_L = 1$\,k$\Omega$}] (3,0.4) node[ground]{};
+\draw (ao) to[short, *-o] (5,2.2) node[right]{A3};
+
+\node[align=left, font=\small, anchor=north west] at (-0.5,-0.2) {
+$V_{out} = V_C\,\dfrac{R_L}{R_S+R_L}\;\Rightarrow\; R_S = R_L\,\dfrac{V_C - V_{out}}{V_{out}}$\\[6pt]
+$V_{out} = \text{ADC}\cdot\dfrac{5\,\text{V}}{1023}$,\quad $R_0 = \dfrac{R_S^{\text{clean air}}}{9.83}$\\[6pt]
+$\log_{10}\!\dfrac{R_S}{R_0} = m\,(\log_{10}c - x_0) + y_0$\\[4pt]
+$c = 10^{\left(\log_{10}(R_S/R_0) - y_0\right)/m \,+\, x_0}$ [ppm]\\[4pt]
+\footnotesize LPG: $(x_0,y_0,m)=(2.3,\,0.21,\,-0.47)$};
+
+% ---------------- (b) battery ----------------
+\begin{scope}[xshift=9cm]
+\node[font=\bfseries, anchor=west] at (-0.5,5.2) {(b) Battery voltage sense};
+\draw (0,4.2) node[left]{$V_{bat}$} to[short, o-] (0.6,4.2) to[D*, l=1N4001] (2.4,4.2) -- (3,4.2);
+\draw (3,4.2) to[R, l={$R_a = 1.5$\,k$\Omega$}] (3,2.2) coordinate (a0);
+\draw (a0) to[R, l={$R_b = 1$\,k$\Omega$}] (3,0.4) node[ground]{};
+\draw (a0) to[short, *-o] (5,2.2) node[right]{A0};
+\node[align=left, font=\small, anchor=north west] at (-0.5,-0.2) {
+$V_{A0} = (V_{bat}-V_D)\,\dfrac{R_b}{R_a+R_b} = 0.4\,(V_{bat}-0.8\,\text{V})$\\[6pt]
+$V_{bat}\,[\text{cV}] = (\text{ADC} + 65)\cdot 1.2317$\\[6pt]
+\footnotesize firmware low-pass: $v_k = 0.92\,v_{k-1} + 0.08\,(\text{ADC}+65)\cdot1.2317$\\
+\footnotesize 12.6\,V full $\to$ ADC $\approx$ 966 (\,$<1023$, no clipping)};
+\end{scope}
+
+% ---------------- (c) UART ----------------
+\begin{scope}[xshift=18cm]
+\node[font=\bfseries, anchor=west] at (-0.5,5.2) {(c) UART level shifting};
+\draw (0,3.2) node[left]{Uno TX (5\,V)} to[short, o-] (0.4,3.2) to[R, l={$R_1 = 1$\,k$\Omega$}] (2.6,3.2) coordinate (rx);
+\draw (rx) to[R, l={$R_2 = 2$\,k$\Omega$}] (2.6,0.9) node[ground]{};
+\draw (rx) to[short, *-o] (4.4,3.2) node[right, align=left]{RPi RXD\\GPIO15};
+
+\node[align=left, font=\small, anchor=north west] at (-0.5,-0.2) {
+$V_{RX} = 5\,\text{V}\cdot\dfrac{R_2}{R_1+R_2} = 3.33\,\text{V}$\\[6pt]
+$\tau = (R_1\!\parallel\! R_2)\,C_{in} \approx 0.67\,\text{k}\Omega\cdot 10\,\text{pF} = 6.7\,\text{ns}$\\
+\footnotesize $\ll$ bit time $1/115\,200 = 8.7\,\mu$s};
+\end{scope}
+\end{circuitikz}
+\end{document}

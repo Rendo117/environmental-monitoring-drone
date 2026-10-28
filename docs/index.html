@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Environmental Monitoring Drone</title>
+<meta name="description" content="A remotely piloted quadcopter that measures combustible gases and ionising radiation in places too dangerous for people. Firmware, companion computer, ground station, mathematical model and schematics.">
+<meta name="author" content="Cristian-Mihail Chirea">
+<link rel="canonical" href="https://rendo117.github.io/environmental-monitoring-drone/">
+<meta property="og:title" content="Environmental Monitoring Drone">
+<meta property="og:description" content="A remotely piloted quadcopter that measures combustible gases and ionising radiation in places too dangerous for people. Firmware, companion computer, ground station, mathematical model and schematics.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://rendo117.github.io/environmental-monitoring-drone/assets/img/drone-photo.jpg">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar"><div class="bar-inner">
+<a class="home" href="./">Environmental Monitoring Drone</a>
+<nav aria-label="Sections">
+<a href="./" aria-current="page">Overview</a>
+<a href="math.html">Mathematics</a>
+<a href="hardware.html">Hardware</a>
+<a href="software.html">Software</a>
+<a href="simulation.html">Simulation</a>
+<a href="errata.html">Errata</a>
+<a class="gh" href="https://github.com/Rendo117/environmental-monitoring-drone">GitHub</a>
+</nav>
+</div></header>
+<main id="main">
+<section class="hero">
+  <div>
+    <p class="meta">Diploma project, Faculty of Automation, Computers and Electronics, University of Craiova, July 2022.<br>Revised and extended edition, 2026.</p>
+    <h1>Environmental monitoring drone for emergency situations</h1>
+    <p class="lede">A quadcopter that flies a gas sensor and a Geiger–Müller counter into an area people should not enter. The operator steers it over the internet and reads the measurements in real time.</p>
+    <div class="actions">
+      <a class="btn primary" href="https://github.com/Rendo117/environmental-monitoring-drone">Source code on GitHub</a>
+      <a class="btn" href="math.html">Read the mathematical model</a>
+    </div>
+  </div>
+  <figure class="photo">
+    <img src="assets/img/drone-photo.jpg" width="1199" height="615" alt="The built quadcopter: a white and black 450 mm X frame with four motors and propellers, with a white 3D-printed enclosure for the electronics in the centre.">
+    <figcaption>The aircraft as built in 2022: F450-class frame, Arduino Uno flight controller and Raspberry Pi 4 under the printed cover.</figcaption>
+  </figure>
+</section>
+
+<section class="anatomy" aria-labelledby="frame-title">
+  <h2 id="frame-title">One line of telemetry, ten times a second</h2>
+  <p class="caption">The flight controller reports everything it knows in a single text frame. The Raspberry Pi checks the checksum, converts the raw values to physical units and publishes them. Hover or tap a field to see what it means.</p>
+  <div class="frame-line" id="frame" aria-hidden="true">
+    <span class="seg" data-f="0">&#36;T</span><span class="sep">,</span><span class="seg" data-f="1">2</span><span class="sep">,</span><span class="seg" data-f="2">0</span><span class="sep">,</span><span class="seg" data-f="3">31</span><span class="sep">,</span><span class="seg" data-f="4">-12</span><span class="sep">,</span><span class="seg" data-f="5">4</span><span class="sep">,</span><span class="seg" data-f="6">212</span><span class="sep">,</span><span class="seg" data-f="7">1</span><span class="sep">,</span><span class="seg" data-f="8">22</span><span class="sep">,</span><span class="seg" data-f="9">1164</span><span class="seg" data-f="10">*60</span>
+  </div>
+  <dl class="fields" id="fields">
+    <div data-f="0"><dt>frame type</dt><dd>telemetry</dd></div>
+    <div data-f="1"><dt>state</dt><dd>2 = armed, PID active</dd></div>
+    <div data-f="2"><dt>fail-safe</dt><dd>0 = command link healthy</dd></div>
+    <div data-f="3"><dt>roll</dt><dd>+3.1°</dd></div>
+    <div data-f="4"><dt>pitch</dt><dd>−1.2°</dd></div>
+    <div data-f="5"><dt>yaw rate</dt><dd>+0.4 °/s</dd></div>
+    <div data-f="6"><dt>MQ-2 gas sensor</dt><dd>ADC 212 → about 8 ppm LPG-equivalent</dd></div>
+    <div data-f="7"><dt>Geiger, last second</dt><dd>1 count</dd></div>
+    <div data-f="8"><dt>Geiger, last 60 s</dt><dd>22 CPM → 0.13 ± 0.03 µSv/h</dd></div>
+    <div data-f="9"><dt>battery</dt><dd>11.64 V (3S LiPo)</dd></div>
+    <div data-f="10"><dt>checksum</dt><dd>XOR of all characters = 0x60</dd></div>
+  </dl>
+</section>
+
+<div class="col">
+<h2>How it works</h2>
+<p>The design keeps the internet out of the stabilisation loop. A small microcontroller keeps the aircraft level 250 times a second. A Raspberry Pi on board relays the operator's commands and the measurements through a Firebase real-time database, so the operator can be anywhere with a connection.</p>
+</div>
+<figure>
+  <div class="frame"><a href="assets/img/architecture.svg"><img src="assets/img/architecture.svg" alt="Block diagram: ground station, Firebase database, Raspberry Pi, ATmega328P flight controller, ESCs and motors. Commands flow left to right, measurements flow back. Sensors connect to the flight controller." width="1400" height="420"></a></div>
+  <figcaption><b>Figure 1.</b> System architecture. Blue arrows carry commands and green arrows carry measurements. Two watchdogs stop the aircraft safely if the link fails: the Raspberry Pi switches off the pulses after 1 s without a new command, and the flight controller then levels the aircraft and lowers the throttle.</figcaption>
+</figure>
+
+<div class="col">
+<h2>What the 2026 revision adds</h2>
+<p>The original thesis was reviewed line by line. The firmware now compiles with every sensor enabled, arms only on the stick sequence, and has a fail-safe. A sign error that would have flipped the aircraft on pitch is fixed. The Java and Python links are authenticated, and the mathematical model now covers the full Newton–Euler dynamics, with a simulation that checks the controller against them.</p>
+</div>
+<ul class="facts">
+  <li><strong>52° / 10.6 dB</strong><span>phase and gain margin of the roll-rate loop with the thesis PID gains</span></li>
+  <li><strong>0.6 s</strong><span>time for the 2022 pitch sign error to tip the simulated aircraft past 70°</span></li>
+  <li><strong>18 + 7 + 7</strong><span>firmware, Raspberry Pi and Java defects corrected (see errata)</span></li>
+  <li><strong>1.2 m/s</strong><span>simulated fail-safe touchdown speed with a barometer, against 11–20 m/s without</span></li>
+</ul>
+
+<h2 class="col">Read further</h2>
+<ul class="index">
+  <li><a href="math.html">Mathematics</a><p>Kinematics, Newton–Euler dynamics, X-frame control allocation, linearisation, the cascaded PID and the complementary filter.</p></li>
+  <li><a href="hardware.html">Hardware</a><p>Wiring diagram, sensor interfaces, the corrected Geiger high-voltage supply, signal timing and bill of materials.</p></li>
+  <li><a href="software.html">Software</a><p>Flight-controller firmware, the Raspberry Pi bridge, the Java ground station and the Firebase security rules.</p></li>
+  <li><a href="simulation.html">Simulation</a><p>Step and disturbance responses, Bode analysis, estimator behaviour and fail-safe descent from a 6-DOF model.</p></li>
+  <li><a href="errata.html">Errata</a><p>Every correction to the 2022 text, code and schematics, with its severity.</p></li>
+  <li><a href="calibration.html">Calibration</a><p>Bench sign checks, motor directions, ESC and sensor calibration, first-flight checklist.</p></li>
+  <li><a href="safety.html">Safety and regulations</a><p>High voltage, LiPo and propeller hazards; EU and Romanian drone rules for this aircraft.</p></li>
+  <li><a href="https://github.com/Rendo117/environmental-monitoring-drone/blob/main/thesis/Chirea-Cristian-Mihail-AIA-2022-original.pdf">Original thesis (PDF, Romanian)</a><p>The diploma project as submitted in June 2022, unchanged.</p></li>
+</ul>
+
+<div class="col">
+<h2 lang="ro">Rezumat</h2>
+<p lang="ro">Proiectul este un sistem pentru măsurarea concentrației de gaze periculoase și a nivelului radiațiilor ionizante cu ajutorul unei drone de tip quadcopter, comandată prin internet. Sistemul are trei componente: o aplicație de control și monitorizare scrisă în Java, o bază de date Firebase și un calculator de bord Raspberry Pi 4 care comunică cu microcontrolerul ATmega328P al dronei și cu traductoarele (MQ-2, tub Geiger–Müller, MPU-6050). Ediția revizuită corectează erorile din lucrarea originală, completează codul sursă și extinde modelul matematic cu o analiză de stabilitate și o simulare.</p>
+</div>
+
+<script>
+(function(){
+  var segs=document.querySelectorAll('#frame .seg'), rows=document.querySelectorAll('#fields div');
+  function on(f){segs.forEach(function(s){s.classList.toggle('on',s.dataset.f===f);});rows.forEach(function(r){r.classList.toggle('on',r.dataset.f===f);});}
+  segs.forEach(function(s){s.addEventListener('mouseenter',function(){on(s.dataset.f);});s.addEventListener('click',function(){on(s.dataset.f);});});
+  rows.forEach(function(r){r.addEventListener('mouseenter',function(){on(r.dataset.f);});});
+  document.getElementById('frame').addEventListener('mouseleave',function(){on(null);});
+})();
+</script>
+
+</main>
+<footer><div class="foot">
+<div>© 2022–2026 Cristian-Mihail Chirea. Code: MIT licence · Text and figures: CC BY 4.0.</div>
+<nav aria-label="Legal">
+<a href="legal.html">Legal notice</a>
+<a href="privacy.html">Privacy</a>
+<a href="terms.html">Terms of use</a>
+<a href="legal.html#licences">Licences</a>
+<button class="theme-toggle" type="button" id="theme">Toggle dark mode</button>
+</nav>
+</div></footer>
+<script>
+(function(){var b=document.getElementById('theme');if(!b)return;b.addEventListener('click',function(){
+var r=document.documentElement,cur=r.getAttribute('data-theme');
+var dark=cur?cur==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;
+var n=dark?'light':'dark';r.setAttribute('data-theme',n);try{localStorage.setItem('theme',n);}catch(e){}});})();
+</script>
+</body>
+</html>
